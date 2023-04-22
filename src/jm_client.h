@@ -104,7 +104,7 @@ typedef uint8_t (*client_rpc_callback_fn)(byte_buffer_t *payload, void *cbArg);
 typedef uint8_t (*client_PubsubListenerFn)(jm_pubsub_item_t *psItem);
 
 //ÕËºÅµÇÂ¼×´Ì¬¼àÌýÆ÷
-typedef void (*client_login_listener_fn)(sint32_t code, char *msg, char *loginKey);
+typedef void (*client_login_listener_fn)(sint32_t code, char *msg, char *loginKey, sint32_t actId);
 
 
 /*
@@ -162,9 +162,24 @@ ICACHE_FLASH_ATTR client_send_msg_result_t client_publishPubsubItem(jm_pubsub_it
 ICACHE_FLASH_ATTR BOOL client_subscribe(char *topic, client_PubsubListenerFn listener, sint8_t type);
 
 /**
+ *
+ */
+ICACHE_FLASH_ATTR BOOL client_subscribeByType(client_PubsubListenerFn listener, sint8_t type);
+
+/**
  * È¡Ïû¶©ÔÄ
  */
 ICACHE_FLASH_ATTR BOOL client_unsubscribe(char *topic, client_PubsubListenerFn listener);
+
+/**
+ * ×¢²áµÇÂ¼×´Ì¬¼àÌýÆ÷£¬×î¶à¿ÉÒÔ×¢²á5¸ö¼àÌýÆ÷
+ */
+ICACHE_FLASH_ATTR BOOL client_registLoginListener(client_login_listener_fn fn);
+
+/**
+ * É¾³ýµÇÂ¼×´Ì¬¼àÌýÆ÷
+ */
+ICACHE_FLASH_ATTR BOOL client_unregistLoginListener(client_login_listener_fn fn);
 
 /**
  * µÇÂ¼JMicroÆ½Ì¨

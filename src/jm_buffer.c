@@ -42,6 +42,8 @@ static BOOL ICACHE_FLASH_ATTR bb_buffer_init0(byte_buffer_t *buf, char *data, ui
 	 buf->wpos = 0;
 	 buf->wrap_buf  = NULL;
 	 buf->rw_flag = true;
+	 buf->rmark = -1;
+	 buf->rmark_status = 0;
 
 	 if(cap == 0) return true;//只申请一buffer,之后再单独初始化
 
@@ -116,7 +118,7 @@ BOOL ICACHE_FLASH_ATTR bb_rmark_reset(byte_buffer_t *buf) {
 	if(_bb_is_wrap(buf)) {
 		return bb_rmark_reset(buf->wrap_buf);
 	} else {
-		if(buf->rmark == -1) return false;
+		if(buf->rmark <= -1) return false;//无效状态
 
 		buf->rpos = buf->rmark;
 		buf->status = buf->rmark_status;

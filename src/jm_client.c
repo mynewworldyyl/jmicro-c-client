@@ -35,8 +35,6 @@ typedef struct _c_msg_result{
 typedef struct _pubsub_listener_item{
 	client_PubsubListenerFn lis;
 	sint8_t type;//对那个类型消息感兴趣，如果type == 0,则对全部类型感觉感兴趣
-	sint64_t subMsgId;//订阅请求的消息ID，用于匹配响应消息
-	sint32_t subId;//订阅成功后，服务器返回的此次订阅唯一标识，用于取消订阅请求
 	struct _pubsub_listener_item *next;
 } ps_listener_item_t;
 
@@ -44,6 +42,8 @@ typedef struct _pubsub_listener_item{
 //一个主题可以有多个监听器监听
 typedef struct _pubsub_listener_map{
 	char *topic;
+	sint64_t subMsgId;//订阅请求的消息ID，用于匹配响应消息
+	sint32_t subId;//订阅成功后，服务器返回的此次订阅唯一标识，用于取消订阅请求
 	ps_listener_item_t *listeners;
 	struct _pubsub_listener_map *next;
 } ps_listener_map;
@@ -63,8 +63,9 @@ const static char *TOPIC_PREFIX = "/__act/dev/";
 //const static char *MSG_TYPE = "__msgType";
 static char *DEVICE_ID = "/testdevice001";
 
+#define llSize 5//最多多少个登录状态监听器
 static sint8_t llCnt = 0;//当前有多少个登录状态监听器
-static client_login_listener_fn loginLises[5]={NULL};//状态监听器数组
+static client_login_listener_fn loginLises[llSize]={NULL};//状态监听器数组
 
 static char *loginKey = NULL;
 static sint32_t actId = 0;
@@ -85,8 +86,9 @@ static ICACHE_FLASH_ATTR client_send_msg_result_t _c_pubsubMsgHandle(jm_msg_t *m
 //subscribe, unsubscribe响应消息处理器
 static ICACHE_FLASH_ATTR client_send_msg_result_t _c_pubsubOpMsgHandle(jm_msg_t *msg);
 
+static ICACHE_FLASH_ATTR char* _c_getTopic();
 //登录成功后，订阅设备全部消息
-static ICACHE_FLASH_ATTR void _c_doSubscribeDeviceMessage();
+//static ICACHE_FLASH_ATTR void _c_doSubscribeDeviceMessage();
 
 /**
  * 根据消息ID取得待响应实例
@@ -151,11 +153,28 @@ static ICACHE_FLASH_ATTR void _c_rebackRpcWaitRorResponse(client_msg_result_t *m
 	//释放过多的实例
 }
 
+ICACHE_FLASH_ATTR BOOL client_init(char *actName, char *pwd) {
+
+	sendBuf = bb_allocate(1024);
+
+	//注册ＲＰC消息处理器
+	client_registMessageHandler(_c_rpcMsgHandle, MSG_TYPE_RRESP_JRPC);
+	//异步消息处理器
+	client_registMessageHandler(_c_pubsubMsgHandle, MSG_TYPE_ASYNC_RESP);
+	//消息订阅和取消订阅，消息转发 返回值处理器
+	client_registMessageHandler(_c_pubsubOpMsgHandle, MSG_TYPE_PUBSUB_RESP);
+
+	//开始登录JMicro服务器,建立与物联网平台连接
+	client_login(actName,pwd);
+
+	return true;
+}
+
 //登录结果处理器
 static ICACHE_FLASH_ATTR uint8_t _c_loginResult(byte_buffer_t *buf, void *arg){
 	cJSON *json = cJSON_ParseWithLength(buf->data, bb_readable_len(buf));
 	if(!json) {
-		INFO("账号登录结果处理错误");
+		INFO("账号登录结果处理错误\n");
 		return MEMORY_OUTOF_RANGE;
 	}
 
@@ -186,36 +205,43 @@ static ICACHE_FLASH_ATTR uint8_t _c_loginResult(byte_buffer_t *buf, void *arg){
 	}
 	cJSON_Delete(json);
 
-	INFO("账号登录结果处理错误code:%s,msg:%s",loginCode,loginMsg);
+	INFO("账号登录结果 code:%s, msg:%s\n",loginCode,loginMsg);
+
+	//if(loginCode == 0)
+	//	_c_doSubscribeDeviceMessage(); //订阅设备消息
 
 	if(llCnt > 0) {
 		//通知登录状态监听器
-		for(int i = 0; i< llCnt; i++) {
-			loginLises[i](loginCode,loginMsg,loginKey);
+		for(int i = 0; i< llSize; i++) {
+			if(loginLises[i] != NULL)
+				loginLises[i](loginCode,loginMsg,loginKey,actId);
 		}
 	}
-
-	if(loginCode == 0)
-		_c_doSubscribeDeviceMessage(); //订阅设备消息
 
 	return SUCCESS;
 }
 
-ICACHE_FLASH_ATTR BOOL client_init(char *actName, char *pwd) {
+ICACHE_FLASH_ATTR BOOL client_registLoginListener(client_login_listener_fn fn){
+	if(llCnt == llSize) return false;//已经达最大监听器数量
+	llCnt++;
+	for(int i = 0; i < llSize; i++) {
+		if(loginLises[i] == NULL) {
+			loginLises[i] = fn;
+			return true;
+		}
+	}
+	return false;
+}
 
-	sendBuf = bb_allocate(1024);
-
-	//注册ＲＰC消息处理器
-	client_registMessageHandler(_c_rpcMsgHandle, MSG_TYPE_RRESP_JRPC);
-	//异步消息处理器
-	client_registMessageHandler(_c_pubsubMsgHandle, MSG_TYPE_ASYNC_RESP);
-	//消息订阅和取消订阅，消息转发 返回值处理器
-	client_registMessageHandler(_c_pubsubOpMsgHandle, MSG_TYPE_PUBSUB_RESP);
-
-	//开始登录JMicro服务器,建立与物联网平台连接
-	client_login(actName,pwd);
-
-	return true;
+ICACHE_FLASH_ATTR BOOL client_unregistLoginListener(client_login_listener_fn fn){
+	for(int i = 0; i < llSize; i++) {
+		if(loginLises[i] == fn) {
+			loginLises[i] = NULL;
+			llCnt--;
+			return true;
+		}
+	}
+	return NULL;
 }
 
 ICACHE_FLASH_ATTR client_send_msg_result_t client_login(char *actName, char *pwd){
@@ -476,21 +502,25 @@ static ICACHE_FLASH_ATTR void _c_pubsubItemRelease(jm_pubsub_item_t *it){
 
 }
 
-//取得消息处理器
-static ICACHE_FLASH_ATTR ps_listener_map* _c_getPubsubListenerMap(char *topic, BOOL docreate){
+static ICACHE_FLASH_ATTR ps_listener_map* _c_getPubsubListenerMap(char *topic){
 	ps_listener_map *h;
 	if(ps_listener != NULL) {
 		h = ps_listener;
 		while(h != NULL) {
-			if(0 == strcmp(topic,h->topic)) {
+			if(0 == strcmp(topic, h->topic)) {
 				return h;
 			}else {
 				h = h->next;
 			}
 		}
 	}
+	 return NULL;
+}
 
-	if(!docreate) return NULL;
+//取得消息处理器
+static ICACHE_FLASH_ATTR ps_listener_map* _c_createPubsubListenerMap(char *topic){
+	ps_listener_map *h = _c_getPubsubListenerMap(topic);
+	if(h) return h;
 
 	//创建一个新的监听主题影射
 	h = (ps_listener_map*)os_zalloc(sizeof(struct _pubsub_listener_map));
@@ -518,27 +548,14 @@ static ICACHE_FLASH_ATTR client_send_msg_result_t _c_pubsubOpMsgHandle(jm_msg_t 
 		sint32_t subId = msg_getS8Extra(msg, EXTRA_KEY_EXT0);
 		char *topic = msg_getCharsExtra(msg, EXTRA_KEY_PS_ARGS);
 
-		ps_listener_map *m = _c_getPubsubListenerMap(topic,false);
+		ps_listener_map *m = _c_getPubsubListenerMap(topic);
 		if(m == NULL) {
 			INFO("收到无效订阅响应topic：%s",topic);
 			//内存溢出
 			return MEMORY_OUTOF_RANGE;
 		}
-
-		ps_listener_item_t *it = NULL;
-		if(m->listeners) {
-			ps_listener_item_t *item = m->listeners;
-			while(item) {
-				if(item->subMsgId == msg->msgId) {
-					it = item;
-					break;
-				}
-				item = item->next;
-			}
-		}
-
-		if(it) {
-			it->subId = subId;
+		if(m->subMsgId == msg->msgId){
+			m->subId = subId;
 		}
 	}
 
@@ -551,21 +568,37 @@ ICACHE_FLASH_ATTR BOOL client_subscribe(char *topic, client_PubsubListenerFn lis
 	if(listener == NULL) return false;
 	if(topic == NULL || strlen(topic) == 0) return false;
 
-	ps_listener_map *m = _c_getPubsubListenerMap(topic,true);
+	BOOL isNewTopic = false;
+	ps_listener_map *m = _c_getPubsubListenerMap(topic);
 	if(m == NULL) {
-		//内存溢出
-		return false;
+		m = _c_createPubsubListenerMap(topic);
+		if(!m) {
+			//内存溢出
+			INFO("ERROR: client_subscribe create map: %s",topic);
+			return false;
+		}
+		isNewTopic = true;
 	}
 
-	jm_msg_t *msg = msg_create_msg(MSG_TYPE_PUBSUB,NULL);
-	if(msg == NULL) {
-		return false;
+	jm_msg_t *msg = NULL;
+	if(isNewTopic) {
+		msg = msg_create_msg(MSG_TYPE_PUBSUB,NULL);
+		if(msg == NULL) {
+			//内存溢出
+			INFO("ERROR: client_subscribe create msg: %s",topic);
+			return false;
+		}
 	}
 
-	if(m->listeners) {
+	if(!isNewTopic && m->listeners) {
+		//已经存在主题，查看是否存在同一个监听
 		ps_listener_item_t *item = m->listeners;
 		while(item) {
-			if(item->lis == listener) return true;//订阅器已经存在，直接返回成功
+			if(item->lis == listener){
+				item->type = type;
+				//订阅器已经存在，直接返回成功
+				return true;
+			}
 			item = item->next;
 		}
 	}
@@ -576,8 +609,9 @@ ICACHE_FLASH_ATTR BOOL client_subscribe(char *topic, client_PubsubListenerFn lis
 	item->lis = listener;
 	item->next = NULL;
 	item->type = type;
-	item->subMsgId = msg->msgId;
-	item->subId = 0;
+
+	m->subMsgId = msg->msgId;
+	m->subId = 0;
 
 	if(m->listeners == NULL) {
 		m->listeners = item;
@@ -603,19 +637,34 @@ ICACHE_FLASH_ATTR BOOL client_subscribe(char *topic, client_PubsubListenerFn lis
 	return true;
 }
 
+ICACHE_FLASH_ATTR BOOL client_subscribeByType(client_PubsubListenerFn listener, sint8_t type){
+	if(loginCode != LSUCCESS) {
+		INFO("账号未登录，不能订阅主题");
+		return false;
+	}
+
+	char *topic = _c_getTopic();
+	if(!topic) {
+		INFO("内存分配错误");
+		return false;
+	}
+
+	//_c_pubsubMsgHandle type = 0,表示处理全部设备消息
+	if(!client_subscribe(topic, listener, type)) {
+		os_free(topic);
+	}
+	return true;
+}
+
 //取消订阅主题
 ICACHE_FLASH_ATTR BOOL client_unsubscribe(char *topic, client_PubsubListenerFn listener){
 	if(listener == NULL) return false;
 	if(topic == NULL || strlen(topic) == 0) return false;
 
-	ps_listener_map *m = _c_getPubsubListenerMap(topic,false);
-	if(m == NULL) {
+	ps_listener_map *m = _c_getPubsubListenerMap(topic);
+	if(m == NULL || m->listeners == NULL) {
 		//不存在主题的订阅
 		return true;
-	}
-
-	if(m->listeners == NULL) {
-		return true;//不存在监听器，直接返回成功
 	}
 
 	ps_listener_item_t *it, *pre, *cit;
@@ -632,38 +681,40 @@ ICACHE_FLASH_ATTR BOOL client_unsubscribe(char *topic, client_PubsubListenerFn l
 		cit = cit->lis;//查找下一个
 	}
 
-	if(cit) {
-		//找到，做删除操作
-		if(pre == NULL) {
-			//只有一个监听器
-			m->listeners = NULL;
-		} else {
-			pre->next = cit->next;
-			cit->next = NULL;
-		}
+	if(it == NULL) return true;
 
-		jm_msg_t* msg = msg_create_msg(MSG_TYPE_PUBSUB,NULL);
-		if(msg == NULL) {
-			return false;
-		}
-
-		/**
-		 let ps = [{k:Constants.EXTRA_KEY_PS_OP_CODE, v:MSG_OP_CODE_UNSUBSCRIBE, t:Constants.PREFIX_TYPE_BYTE},
-		{k:Constants.EXTRA_KEY_PS_ARGS, v:callback.id, t:Constants.PREFIX_TYPE_INT}]
-		 */
-		//订阅参数
-		msg_putByteExtra(msg, EXTRA_KEY_PS_OP_CODE, MSG_OP_CODE_UNSUBSCRIBE);
-		msg_putIntExtra(msg, EXTRA_KEY_PS_ARGS, cit->subId);
-		//订阅请求，返回服端唯一消息ID
-		client_send_msg_result_t subRes = client_sendMessage(msg);
-		/*if(!subRes) {
-			return false;
-		}*/
-		//释放内存
-		msg_release(msg);
-
+	//找到，做删除操作
+	if(pre != NULL) {
+		pre->next = cit->next;
+		cit->next = NULL;
+		os_free(it);
+		return true;
+	} else {
+		//只有一个监听器,即最后一个
+		m->listeners = NULL;
 		os_free(cit);
 	}
+
+	jm_msg_t* msg = msg_create_msg(MSG_TYPE_PUBSUB,NULL);
+	if(msg == NULL) {
+		INFO("ERROR: client_unsubscribe create msg: %s",topic);
+		return false;
+	}
+
+	/**
+	 let ps = [{k:Constants.EXTRA_KEY_PS_OP_CODE, v:MSG_OP_CODE_UNSUBSCRIBE, t:Constants.PREFIX_TYPE_BYTE},
+	{k:Constants.EXTRA_KEY_PS_ARGS, v:callback.id, t:Constants.PREFIX_TYPE_INT}]
+	 */
+	//订阅参数
+	msg_putByteExtra(msg, EXTRA_KEY_PS_OP_CODE, MSG_OP_CODE_UNSUBSCRIBE);
+	msg_putIntExtra(msg, EXTRA_KEY_PS_ARGS, m->subId);
+	//订阅请求，返回服端唯一消息ID
+	client_send_msg_result_t subRes = client_sendMessage(msg);
+	/*if(!subRes) {
+		return false;
+	}*/
+	//释放内存
+	msg_release(msg);
 
 	//订阅成功
 	return true;
@@ -673,7 +724,7 @@ ICACHE_FLASH_ATTR BOOL client_unsubscribe(char *topic, client_PubsubListenerFn l
 static ICACHE_FLASH_ATTR void _c_dispachPubsubItem(jm_pubsub_item_t *it){
 	if(it==NULL) return;
 
-	ps_listener_map *m = _c_getPubsubListenerMap(it->topic,false);
+	ps_listener_map *m = _c_getPubsubListenerMap(it->topic);
 	if(m == NULL || m->listeners == NULL) {
 		//不存在主题的订阅
 		return;
@@ -800,7 +851,7 @@ static ICACHE_FLASH_ATTR void _c_pubsubItemParseJson(jm_msg_t *msg){
 	if(data != NULL) {
 		sint16_t sl = strlen(data)+1;
 		byte_buffer_t *b = bb_allocate(sl);
-		bb_put_chars(b,data,sl);
+		bb_put_chars(b,data,sl-1);
 		bb_put_char(b,'\0');
 		it->data = b;
 	}
@@ -938,18 +989,7 @@ ICACHE_FLASH_ATTR client_send_msg_result_t client_publishPubsubItem(jm_pubsub_it
 	return sendRst;
 }
 
-//接收设备异步消息
-static ICACHE_FLASH_ATTR uint8_t _c_dispatchPubsubItemByType(jm_pubsub_item_t *psItem){
-	printf("_c_dispatchPubsubItemByType: ");
-	printf("type: %d, data:%s\n",psItem->type,psItem->data->data);
-	return SUCCESS;
-}
-
-static ICACHE_FLASH_ATTR void _c_doSubscribeDeviceMessage(){
-	if(loginCode != LSUCCESS) {
-		INFO("账号未登录，不能订阅主题");
-	}
-
+static  ICACHE_FLASH_ATTR char* _c_getTopic() {
 	 char actIdStr[32];
 	 itoa(actId, actIdStr, 10);
 
@@ -957,18 +997,14 @@ static ICACHE_FLASH_ATTR void _c_doSubscribeDeviceMessage(){
 	char *topic = os_zalloc(len);
 	if(topic == NULL) {
 		INFO("do_subscribe_topic内存溢出");
-		return;
+		return NULL;
 	}
 
 	memset(topic,0,len);
 	strncpy(topic, TOPIC_PREFIX, strlen(TOPIC_PREFIX));
 	strcat(topic, actIdStr);
 	strcat(topic, DEVICE_ID);
-
-	//_c_pubsubMsgHandle type = 0,表示处理全部设备消息
-	client_subscribe(/*TOPIC_PREFIX*/topic, _c_dispatchPubsubItemByType, 0);
-
-	//os_free(topic);
+	return topic;
 }
 
 /*===============================异步消息处理 结束 ==========================================*/

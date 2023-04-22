@@ -22,7 +22,7 @@ static struct sockaddr_in *remote;
 
 //char *get;
 
-static int READ_BUF_SIZE = BUFSIZ*4;
+static int READ_BUF_SIZE = BUFSIZ*1;
 
 static char buf[BUFSIZ];
 
