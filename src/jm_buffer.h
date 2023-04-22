@@ -30,13 +30,13 @@ extern "C"
 
 typedef struct _jm_buffer
 {
-	char *data;
+	volatile char *data;
 	uint16_t capacity;
 	//用一个字节存储当前缓存状态
-	uint8_t status;
-	uint16_t rpos ;
+	volatile uint8_t status;
+	volatile uint16_t rpos ;
 
-	uint16_t wpos;
+	volatile uint16_t wpos;
 
 	struct _jm_buffer *wrap_buf;
 	BOOL rw_flag;// true:只读，false:只写
@@ -57,6 +57,8 @@ typedef struct _jm_buffer
 #include "debug.h"
 
 void bb_print(byte_buffer_t *buf);
+
+void ICACHE_FLASH_ATTR bb_clear(byte_buffer_t *buf);
 
 void ICACHE_FLASH_ATTR bb_rmark(byte_buffer_t *buf);
 BOOL ICACHE_FLASH_ATTR bb_rmark_reset(byte_buffer_t *buf);

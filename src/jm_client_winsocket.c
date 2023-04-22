@@ -80,14 +80,20 @@ BOOL client_recv_one_loop() {
 	}
 
 	//printChars(buf,tmpres);
-	bb_put_chars(readBuf,buf,tmpres);
+	if(!bb_put_chars(readBuf,buf,tmpres)){
+		INFO("写byte_buffer失败，剩余空可写空间：%d,需写空间:%d",bb_writeable_len(readBuf),tmpres);
+		bb_clear(readBuf);//清除缓存，丢包总比死机强
+		return false;
+	}
 
-	jm_msg_t *msg = msg_readMessage(readBuf);
+	while(true) {
 
-	if(msg) {
+		jm_msg_t *msg = msg_readMessage(readBuf);
 
+		if(!msg) {
+			return true;
+		}
 		//bb_print(msg->payload);
-
 		sint8_t c = client_onMessage(msg);//消息通知
 		if(c != SUCCESS) {
 			//perror("handle msg result code: %d");
@@ -100,6 +106,7 @@ BOOL client_recv_one_loop() {
 		}
 		os_free(msg);
 	}
+
 	return true;
 
 }

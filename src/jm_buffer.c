@@ -30,13 +30,7 @@ static BOOL ICACHE_FLASH_ATTR _bb_is_wrap(byte_buffer_t *buf) {
 	return buf->wrap_buf != NULL;
 }
 
-static BOOL ICACHE_FLASH_ATTR bb_buffer_init0(byte_buffer_t *buf, char *data, uint16_t cap) {
-	 buf->capacity = cap;
-
-	 if(data) {
-		 buf->data = data;
-	 }
-
+void ICACHE_FLASH_ATTR bb_clear(byte_buffer_t *buf) {
 	 buf->status = BB_EMPTY; //初始状态是空
 	 buf->rpos = 0;
 	 buf->wpos = 0;
@@ -44,6 +38,14 @@ static BOOL ICACHE_FLASH_ATTR bb_buffer_init0(byte_buffer_t *buf, char *data, ui
 	 buf->rw_flag = true;
 	 buf->rmark = -1;
 	 buf->rmark_status = 0;
+}
+
+static BOOL ICACHE_FLASH_ATTR bb_buffer_init0(byte_buffer_t *buf, char *data, uint16_t cap) {
+	 buf->capacity = cap;
+	 bb_clear(buf);
+	 if(data) {
+		 buf->data = data;
+	 }
 
 	 if(cap == 0) return true;//只申请一buffer,之后再单独初始化
 
@@ -53,6 +55,8 @@ static BOOL ICACHE_FLASH_ATTR bb_buffer_init0(byte_buffer_t *buf, char *data, ui
 	 }
 	 return true;
 }
+
+
 
 byte_buffer_t* ICACHE_FLASH_ATTR bb_allocate(int capacity) {
 	if (capacity < 0) {
@@ -300,14 +304,12 @@ BOOL ICACHE_FLASH_ATTR bb_rmove_forward(byte_buffer_t *buf, uint16_t forwarnCnt)
 	return true;
 }
 
-
-
 static BOOL ICACHE_FLASH_ATTR bb_check_read_len(byte_buffer_t *buf, uint16_t len) {
 	if(_bb_is_wrap(buf)) {
 		if(buf->rw_flag) {
 			//只读缓存不能写
 			return bb_readable_len(buf) >= len;
-		}else {
+		} else {
 			//只写缓存
 			return false;
 		}
@@ -319,7 +321,7 @@ static BOOL ICACHE_FLASH_ATTR bb_check_read_len(byte_buffer_t *buf, uint16_t len
 	}
 
 	if(bb_readable_len(buf) < len) {
-		INFO("ERROR: bb_readable_len readable_len: %d, read len: %d\r\n", bb_readable_len(buf),len);
+		INFO("ERROR: bb_readable_len 可读长度: %d, 需读长度: %d\r\n", bb_readable_len(buf),len);
 		return false;
 	}
 	return true;
@@ -609,7 +611,7 @@ static BOOL ICACHE_FLASH_ATTR bb_check_write_len(byte_buffer_t *buf, uint16_t le
 	}
 
 	if(bb_writeable_len(buf) < len) {
-		INFO("ERROR: bb_check_write_len bb_writeable_len: %d, write len: %d\r\n", bb_writeable_len(buf),len);
+		INFO("ERROR: bb_check_write_len 剩余写空间: %d, 需要空间: %d\r\n", bb_writeable_len(buf),len);
 		return false;
 	}
 	return true;

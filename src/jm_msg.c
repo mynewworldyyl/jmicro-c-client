@@ -1116,13 +1116,23 @@ ICACHE_FLASH_ATTR jm_msg_t *msg_readMessage(byte_buffer_t *buf){
 	//cache.get(data, 0, len + headerLen);
 	//return Message.decode(new JDataInput(ByteBuffer.wrap(data)));
 
-	byte_buffer_t *cache = bb_buffer_wrap(buf, len + headerLen,true);
+	jm_msg_t *msg = NULL;
+	byte_buffer_t *cache = bb_allocate(len + headerLen);
+	if(!cache) {
+		INFO("msg_readMessage同存溢出");
+		return NULL;
+	}
+	if(bb_get_buf(buf,cache,len + headerLen)) {
+		msg = msg_decode(cache);
+		bb_free(cache);
+	}else {
+		bb_free(cache);
+		INFO("msg_readMessage读数据错误");
+		return NULL;
+	}
+
+	//byte_buffer_t *cache = bb_buffer_wrap(buf, ,true);
 	//bb_rmove_forward(buf,len + headerLen);//前移一个消息长度
-	jm_msg_t *msg = msg_decode(cache);
-
-	cache->wrap_buf = NULL;
-	bb_free(cache);
-
 	return msg;
 
 }

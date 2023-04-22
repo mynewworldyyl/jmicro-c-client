@@ -11,8 +11,8 @@ extern BOOL client_recv_one_loop();
 
 extern void client_ws_init();
 
-static void test_onPubsubItemListener(jm_pubsub_item_t *item) {
-	printf("test_onPubsubItemListener: data= %s, fr= %d, type= %d \n",item->data->data, item->fr, item->type);
+static uint8_t test_onPubsubItemType2Listener(jm_pubsub_item_t *item) {
+	printf("test_onPubsubItemType2Listener: data= %s, fr= %d, type= %d \n",item->data->data, item->fr, item->type);
 
 	//client_subscribeByType();
 	/*
@@ -20,16 +20,54 @@ static void test_onPubsubItemListener(jm_pubsub_item_t *item) {
 	client_unregistLoginListener(test_jmLoginListener);
 	printf("client_unregistLoginListener succesfully\n");
 	*/
+	return SUCCESS;
+}
+
+static uint8_t test_onPubsubItemType1Listener(jm_pubsub_item_t *item) {
+	printf("test_onPubsubItemType1Listener: data= %s, fr= %d, type= %d \n",item->data->data, item->fr, item->type);
+
+	//client_subscribeByType();
+	/*
+	printf("client_unregistLoginListener begin \n");
+	client_unregistLoginListener(test_jmLoginListener);
+	printf("client_unregistLoginListener succesfully\n");
+	*/
+	return SUCCESS;
+}
+
+static uint8_t test_onPubsubItemType3Listener(jm_pubsub_item_t *item) {
+	printf("test_onPubsubItemType3Listener: data= %s, fr= %d, type= %d \n",item->data->data, item->fr, item->type);
+
+	//client_subscribeByType();
+	/*
+	printf("client_unregistLoginListener begin \n");
+	client_unregistLoginListener(test_jmLoginListener);
+	printf("client_unregistLoginListener succesfully\n");
+	*/
+	return SUCCESS;
 }
 
 static void test_jmLoginListener(sint32_t code, char *msg, char *loginKey, sint32_t actId) {
 	printf("Listener1 got login result: %s, %s, %d, %d\n",loginKey,msg,code,actId);
 
 	printf("test_jmLoginListener 订阅异步消息 begin \n");
-	if(client_subscribeByType(test_onPubsubItemListener,2)) {
-		printf("test_jmLoginListener 订阅异步消息成功  \n");
+
+	if(client_subscribeByType(test_onPubsubItemType1Listener,1)) {
+		printf("test_jmLoginListener1 订阅异步消息成功  \n");
 	} else {
-		printf("test_jmLoginListener 订阅异步消息失败  \n");
+		printf("test_jmLoginListener1 订阅异步消息失败  \n");
+	}
+
+	if(client_subscribeByType(test_onPubsubItemType2Listener,2)) {
+		printf("test_jmLoginListener2 订阅异步消息成功  \n");
+	} else {
+		printf("test_jmLoginListener2 订阅异步消息失败  \n");
+	}
+
+	if(client_subscribeByType(test_onPubsubItemType3Listener,3)) {
+		printf("test_jmLoginListener3 订阅异步消息成功  \n");
+	} else {
+		printf("test_jmLoginListener3 订阅异步消息失败  \n");
 	}
 
 	/*
@@ -60,7 +98,6 @@ static void test_jmLoginListener3(sint32_t code, char *msg, char *loginKey, sint
 int test_jm_client_pubsub()
 {
 	INFO("test_jm_client_pubsub starting");
-	INFO("test_jm_client_pubsub starting");
 
 	setbuf(stdout,NULL);
 
@@ -72,8 +109,8 @@ int test_jm_client_pubsub()
 	//client_registLoginListener(test_jmLoginListener3);
 
 	while(1) {
-		sleep(1);
-		printf("One loop: ");
+		//sleep(1);
+		//printf("One loop: ");
 		if(!client_recv_one_loop()) {
 			printf("client_recv_one_loop:fail\n");
 		}

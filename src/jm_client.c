@@ -610,8 +610,10 @@ ICACHE_FLASH_ATTR BOOL client_subscribe(char *topic, client_PubsubListenerFn lis
 	item->next = NULL;
 	item->type = type;
 
-	m->subMsgId = msg->msgId;
-	m->subId = 0;
+	if(msg) {
+		m->subMsgId = msg->msgId;
+		m->subId = 0;
+	}
 
 	if(m->listeners == NULL) {
 		m->listeners = item;
@@ -621,17 +623,19 @@ ICACHE_FLASH_ATTR BOOL client_subscribe(char *topic, client_PubsubListenerFn lis
 		m->listeners = item;
 	}
 
-	//订阅参数
-	msg_putByteExtra(msg, EXTRA_KEY_PS_OP_CODE, MSG_OP_CODE_SUBSCRIBE);
-	msg_putCharsExtra(msg, EXTRA_KEY_PS_ARGS, topic, strlen(topic));
-	//订阅请求，返回服端唯一消息ID
-	/*client_send_msg_result_t subRes = */
-	client_sendMessage(msg);
-	/*if(!subRes) {
-		return false;
-	}*/
-	//释放内存
-	msg_release(msg);
+	if(msg) {
+		//订阅参数
+		msg_putByteExtra(msg, EXTRA_KEY_PS_OP_CODE, MSG_OP_CODE_SUBSCRIBE);
+		msg_putCharsExtra(msg, EXTRA_KEY_PS_ARGS, topic, strlen(topic));
+		//订阅请求，返回服端唯一消息ID
+		/*client_send_msg_result_t subRes = */
+		client_sendMessage(msg);
+		/*if(!subRes) {
+			return false;
+		}*/
+		//释放内存
+		msg_release(msg);
+	}
 
 	//订阅成功
 	return true;
