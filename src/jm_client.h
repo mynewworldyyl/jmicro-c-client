@@ -12,19 +12,27 @@
 #include "jm_msg.h"
 #include "cJSON.h"
 
-typedef enum _client_send_msg_result{
-	SUCCESS=-100,
-	SOCKET_SENDER_NULL=-99,//底层SOCKET没建立
-	ENCODE_MSG_FAIL=-98,//消息编码失败
-	HANDLE_MSG_FAIL=-97,//消息处理器未找到
-	MSG_CREATE_FAIL=-96,//消息创建失败
-	MEMORY_OUTOF_RANGE=-95,//内存申请失败，也就是内存溢出
-	MSG_WAIT_NOT_FOUND=-94,//没找到等待响应的消息
-	SEND_DATA_ERROR=-93,//发送数据错误
-	NO_DATA_TO_SEND=-92,//无数据可发送,
-	INVALID_PS_DATA=-91, //PUBSUB数据无效
+#include "c_types.h"
 
-} client_send_msg_result_t;
+#define CACHE_PUBSUB_ITEM "C_PS_ITEM_"
+#define CACHE_PUBSUB_ITEM_EXTRA "C_PS_ITEM_EXTRA_"
+
+#define CACHE_MESSAGE "C_MESSAGE_"
+#define CACHE_MESSAGE_EXTRA "C_MESSAGE_EXTRA_"
+
+//第5，6两位一起表示data字段的编码类型
+#define FLAG_DATA_TYPE 5
+#define FLAG_DATA_STRING 0
+#define FLAG_DATA_BIN 1
+#define FLAG_DATA_JSON 2
+#define FLAG_DATA_NONE 3
+
+#define client_setPSItemDataType(v,flag) (*flag = (v << FLAG_DATA_TYPE) | *flag)
+
+#define MSG_OP_CODE_SUBSCRIBE 1//閿熸枻鎷烽敓鏂ゆ嫹閿熸枻鎷锋伅
+#define MSG_OP_CODE_UNSUBSCRIBE 2//鍙栭敓鏂ゆ嫹閿熸枻鎷烽敓鏂ゆ嫹閿熸枻鎷锋伅
+#define MSG_OP_CODE_FORWARD 3//杞敓鏂ゆ嫹閿熸枻鎷锋伅
+#define MSG_OP_CODE_FORWARD_BY_TOPIC 4//根据主题做转发
 
 typedef enum _client_act_login_status{
 	LSUCCESS=0,//登录成功
@@ -34,54 +42,57 @@ typedef enum _client_act_login_status{
 
 typedef struct _c_pubsub_item{
 
-	//消息ID,唯一标识一个消息
-	//private long
-	sint64_t id;
+	//标志
+	uint8_t dataFlag;
 
-	//源租户，设备服务商租户
-	//private int
-	sint32_t srcClientId;
+	//private byte
+	uint8_t flag;
 
 	//消息来源，对应设备ID
 	//private Integer
 	sint32_t fr;
 
+	//消息ID,唯一标识一个消息
+	//private long
+	sint64_t id; //0
+
+	sint8_t type;//1 消息类型，根据类型做消息转发
+
+	//主题
+	//private String
+	char *topic; //2
+
+	//源租户，设备服务商租户
+	//private int
+	sint32_t srcClientId; //3
+
 	//消息发送给谁，对应设备ID
 	//private Integer
-	sint32_t to;
-
-	//消息数据
-	//private Object
-	byte_buffer_t *data;
+	sint32_t to; //4
 
 	//消息发送结果回调的RPC方法，用于消息服务器给发送者回调
 	//private String
-	//char *callback ;
+	char *callback ; //5
+
+	//延迟多久发送，单位是秒
+	//private long
+	uint8_t delay;  //6
+
+	//消息上下文
+	/*private Map<String,Object>*/
+	msg_extra_data_t *cxt; //7
+
+	//消息数据
+	//private Object
+	//byte_buffer_t *data;  //8
+
+	void *data;
 
 	//本地回调
 	//private transient ILocalCallback localCallback;
 
 	//客户端发送失败次数，用于重发计数，如果消息失败次数到达一定量，将消息丢弃，并调用localCallback（如果存在）通知调用者，
 	//private transient int failCnt = 0;
-
-	//消息上下文
-	/*private Map<String,Object>*/
-	msg_extra_data_t *cxt;
-
-
-	//主题
-	//private String
-	char *topic;
-
-	//标志
-	//private byte
-	sint8_t flag;
-
-	sint8_t type;//消息类型，根据类型做消息转发
-
-	//延迟多久发送，单位是秒
-	//private long
-	sint8_t delay;
 
 } jm_pubsub_item_t;
 
@@ -107,6 +118,8 @@ typedef uint8_t (*client_PubsubListenerFn)(jm_pubsub_item_t *psItem);
 typedef void (*client_login_listener_fn)(sint32_t code, char *msg, char *loginKey, sint32_t actId);
 
 
+typedef void (*client_conn_discon_fn)();
+
 /*
  * 向网络中发关消息， 不同平台需实现此接口
  */
@@ -119,16 +132,25 @@ extern "C"
 
 ICACHE_FLASH_ATTR BOOL client_init();
 
+//底层网络连接断开
+ICACHE_FLASH_ATTR BOOL client_socketDisconCb();
+
+//底层网络连接成功
+ICACHE_FLASH_ATTR BOOL client_socketConedCb();
+
+ICACHE_FLASH_ATTR BOOL client_socketSendTimeoutCb();
+
+//注册数据发送器，由具体网终实层者调用
 ICACHE_FLASH_ATTR BOOL client_registMessageSender(client_send_msg_fn sender);
+
+//处理接收到的消息
+ICACHE_FLASH_ATTR client_send_msg_result_t client_onMessage(jm_msg_t *msg);
 
 //发送消息
 ICACHE_FLASH_ATTR client_send_msg_result_t client_sendMessage(jm_msg_t *msg);
 
 //注册消息处理器
 ICACHE_FLASH_ATTR BOOL client_registMessageHandler(client_msg_hander_fn msg, sint8_t type);
-
-//处理接收到的消息
-ICACHE_FLASH_ATTR client_send_msg_result_t client_onMessage(jm_msg_t *msg);
 
 ICACHE_FLASH_ATTR client_send_msg_result_t client_invokeRpcWithArrayArgs(sint32_t mcode, cJSON *args,
 		client_rpc_callback_fn callback, void *cbArgs);
@@ -149,12 +171,12 @@ ICACHE_FLASH_ATTR client_send_msg_result_t client_invokeRpc(sint32_t mcode, byte
 /**
  * 发送异步消息
  */
-ICACHE_FLASH_ATTR client_send_msg_result_t client_publishStrItem(char *topic, sint8_t type, char *content);
+ICACHE_FLASH_ATTR client_send_msg_result_t client_publishStrItem(char *topic, sint8_t type, char *content, msg_extra_data_t *extra);
 
 /**
  *
  */
-ICACHE_FLASH_ATTR client_send_msg_result_t client_publishPubsubItem(jm_pubsub_item_t *item);
+ICACHE_FLASH_ATTR client_send_msg_result_t client_publishPubsubItem(jm_pubsub_item_t *item, msg_extra_data_t *extra);
 
 /**
  * 订阅异步消息

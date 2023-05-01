@@ -7,14 +7,16 @@
 #include <stdio.h>
 #include <winsock.h>
 #include <assert.h>
-#include "./testcase/test.h"
-#include "jm_constants.h"
-#include "jm_msg.h"
-#include "jm_buffer.h"
-#include "jm_client.h"
+
+#include "test.h"
+
+#include "../jm_constants.h"
+#include "../jm_msg.h"
+#include "../jm_buffer.h"
+#include "../jm_client.h"
 
 #define PORT 9092
-#define IP "192.168.3.41"
+#define IP "127.0.0.1"
 #define USERAGENT "ApOgEE MinGW Socket Client 1.0"
 
 static int client_socket = 0;
@@ -60,7 +62,7 @@ client_send_msg_result_t client_ws_send_msg(byte_buffer_t *buf) {
 	os_free(p);
 	//bb_move_forward(buf,len);
 
-	return SUCCESS;
+	return JM_SUCCESS;
 }
 
 void printChars(char *buf, int len){
@@ -74,8 +76,9 @@ void printChars(char *buf, int len){
 
 BOOL client_recv_one_loop() {
 
-	int tmpres;
-	if((tmpres = recv(client_socket, buf, BUFSIZ, 0)) <= 0) {
+	int tmpres = recv(client_socket, buf, BUFSIZ, 0);
+	if(tmpres <= 0) {
+		sleep(1);
 		return false;//无数据可读
 	}
 
@@ -95,13 +98,13 @@ BOOL client_recv_one_loop() {
 		}
 		//bb_print(msg->payload);
 		sint8_t c = client_onMessage(msg);//消息通知
-		if(c != SUCCESS) {
+		if(c != JM_SUCCESS) {
 			//perror("handle msg result code: %d");
 			printf("handle msg result code: %d\n",c);
 		}
 		//释放内存
 		if(msg->payload) {
-			bb_free(msg->payload);
+			bb_release(msg->payload);
 			msg->payload = NULL;
 		}
 		os_free(msg);
@@ -133,15 +136,15 @@ void client_ws_init() {
 	// setup remote socket
 	remote = (struct sockaddr_in *)malloc(sizeof(struct sockaddr_in *));
 	remote->sin_family = AF_INET;
-	printf("s_addr:%d\n",remote->sin_addr.s_addr);
+	printf("s_addr:%d\n", remote->sin_addr.s_addr);
 	remote->sin_addr.s_addr = inet_addr(ip);
 	remote->sin_port = htons(PORT);
-	printf("s_addr:%d\n",remote->sin_addr.s_addr);
+	printf("s_addr:%d\n", remote->sin_addr.s_addr);
 
 	//connect socket
 	if(connect(client_socket, (struct sockaddr *)remote, sizeof(struct sockaddr)) == SOCKET_ERROR){
 		closesocket(client_socket);
-		perror("Could not connect");
+		printf("Could not connect to：%s\n", IP);
 		WSACleanup();
 		exit(1);
 	}
@@ -151,5 +154,5 @@ void client_ws_init() {
 		exit(1);
 	}
 
-	readBuf = bb_allocate(READ_BUF_SIZE);
+	readBuf = bb_create(READ_BUF_SIZE);
 }

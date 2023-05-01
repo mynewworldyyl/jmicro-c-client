@@ -18,7 +18,7 @@ uint8_t client_rpc_callback(byte_buffer_t *payload, void *arg){
 		}
 	}
 	printf("\n");
-	return SUCCESS;
+	return JM_SUCCESS;
 }
 
 int test_jm_client_rpc()

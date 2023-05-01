@@ -277,7 +277,7 @@ void test_data_packge(byte_buffer_t *buf) {
 }
 
 int test_byte_buffer() {
-	byte_buffer_t *buf = bb_allocate(64);
+	byte_buffer_t *buf = bb_create(64);
 	//test_data_packge(buf);
 	test_chars(buf);
 	/*

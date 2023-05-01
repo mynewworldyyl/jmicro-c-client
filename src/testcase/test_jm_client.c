@@ -73,7 +73,7 @@ int test_jm_client()
 	}
 
 	//now it is time to receive the page
-	byte_buffer_t *readBuf = bb_allocate(BUFSIZ);
+	byte_buffer_t *readBuf = bb_create(BUFSIZ);
 	while((tmpres = recv(client_socket, buf, BUFSIZ, 0)) > 0) {
 		bb_put_chars(readBuf,buf,tmpres);
 		jm_msg_t *msg = decode_message(readBuf);
@@ -95,7 +95,7 @@ byte_buffer_t *create_message() {
 	char *pro = "{\"args\":[\"netty\"],\"params\":{\"NCR\":\"\"}}";
 	size_t pdlen = strlen(pro);
 
-	byte_buffer_t *payload = bb_allocate(pdlen);
+	byte_buffer_t *payload = bb_create(pdlen);
 
 	assert(bb_put_chars(payload, pro, pdlen));
 
@@ -103,7 +103,7 @@ byte_buffer_t *create_message() {
 	jm_msg_t *msg = msg_create_rpc_msg(-655376287, payload);
 	assert(msg != NULL);
 
-	byte_buffer_t *buf = bb_allocate(1024);
+	byte_buffer_t *buf = bb_create(1024);
 	assert(buf != NULL);
 
 	assert(msg_encode(msg,buf));

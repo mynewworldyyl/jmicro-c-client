@@ -8,7 +8,7 @@ void testMsg(){
 
 	size_t pdlen = strlen(TRANSPORT_NETTY);
 
-	byte_buffer_t *payload = bb_allocate(pdlen);
+	byte_buffer_t *payload = bb_create(pdlen);
 
 	assert(bb_put_chars(payload,TRANSPORT_NETTY,pdlen));
 
@@ -16,7 +16,7 @@ void testMsg(){
 	jm_msg_t *msg = msg_create_rpc_msg(-655376287, payload);
 	assert(msg != NULL);
 
-	byte_buffer_t *buf = bb_allocate(1024);
+	byte_buffer_t *buf = bb_create(1024);
 	assert(buf != NULL);
 
 	assert(msg_encode(msg,buf));
@@ -32,7 +32,7 @@ void testMsg(){
 		}
 	}
 
-	bb_free(buf);
+	bb_release(buf);
 	//msg_release(dmsg);
 	msg_release(msg);
 }

@@ -185,9 +185,9 @@ static void * CJSON_CDECL internal_realloc(void *pointer, size_t size)
 
 static internal_hooks global_hooks = { internal_malloc, internal_free, internal_realloc };
 
-static unsigned char* cJSON_strdup(const unsigned char* string, const internal_hooks * const hooks)
+static unsigned char* cJSON_strdup(const unsigned char* string, int length, const internal_hooks * const hooks)
 {
-    size_t length = 0;
+    //size_t length = 0;
     unsigned char *copy = NULL;
 
     if (string == NULL)
@@ -195,7 +195,12 @@ static unsigned char* cJSON_strdup(const unsigned char* string, const internal_h
         return NULL;
     }
 
-    length = strlen((const char*)string) + sizeof("");
+    if(length <= 0) {
+    	length = strlen((const char*)string) + sizeof("");
+    }else {
+    	 length += sizeof("");
+    }
+
     copy = (unsigned char*)hooks->allocate(length);
     if (copy == NULL)
     {
@@ -410,7 +415,7 @@ CJSON_PUBLIC(char*) cJSON_SetValuestring(cJSON *object, const char *valuestring)
         strcpy(object->valuestring, valuestring);
         return object->valuestring;
     }
-    copy = (char*) cJSON_strdup((const unsigned char*)valuestring, &global_hooks);
+    copy = (char*) cJSON_strdup((const unsigned char*)valuestring, 0, &global_hooks);
     if (copy == NULL)
     {
         return NULL;
@@ -2025,7 +2030,7 @@ static cJSON_bool add_item_to_object(cJSON * const object, const char * const st
     }
     else
     {
-        new_key = (char*)cJSON_strdup((const unsigned char*)string, hooks);
+        new_key = (char*)cJSON_strdup((const unsigned char*)string,0, hooks);
         if (new_key == NULL)
         {
             return false;
@@ -2150,7 +2155,7 @@ CJSON_PUBLIC(cJSON*) cJSON_AddStringToObject(cJSON * const object, const char * 
 
 CJSON_PUBLIC(cJSON*) cJSON_AddRawToObject(cJSON * const object, const char * const name, const char * const raw)
 {
-    cJSON *raw_item = cJSON_CreateRaw(raw);
+    cJSON *raw_item = cJSON_CreateRaw(raw,0);
     if (add_item_to_object(object, name, raw_item, &global_hooks, false))
     {
         return raw_item;
@@ -2360,7 +2365,7 @@ static cJSON_bool replace_item_in_object(cJSON *object, const char *string, cJSO
     {
         cJSON_free(replacement->string);
     }
-    replacement->string = (char*)cJSON_strdup((const unsigned char*)string, &global_hooks);
+    replacement->string = (char*)cJSON_strdup((const unsigned char*)string,0, &global_hooks);
     if (replacement->string == NULL)
     {
         return false;
@@ -2458,7 +2463,7 @@ CJSON_PUBLIC(cJSON *) cJSON_CreateString(const char *string)
     if(item)
     {
         item->type = cJSON_String;
-        item->valuestring = (char*)cJSON_strdup((const unsigned char*)string, &global_hooks);
+        item->valuestring = (char*)cJSON_strdup((const unsigned char*)string,0, &global_hooks);
         if(!item->valuestring)
         {
             cJSON_Delete(item);
@@ -2502,13 +2507,13 @@ CJSON_PUBLIC(cJSON *) cJSON_CreateArrayReference(const cJSON *child) {
     return item;
 }
 
-CJSON_PUBLIC(cJSON *) cJSON_CreateRaw(const char *raw)
+CJSON_PUBLIC(cJSON *) cJSON_CreateRaw(const char *raw, int length)
 {
     cJSON *item = cJSON_New_Item(&global_hooks);
     if(item)
     {
         item->type = cJSON_Raw;
-        item->valuestring = (char*)cJSON_strdup((const unsigned char*)raw, &global_hooks);
+        item->valuestring = (char*)cJSON_strdup((const unsigned char*)raw, length, &global_hooks);
         if(!item->valuestring)
         {
             cJSON_Delete(item);
@@ -2727,7 +2732,7 @@ CJSON_PUBLIC(cJSON *) cJSON_Duplicate(const cJSON *item, cJSON_bool recurse)
     newitem->valuedouble = item->valuedouble;
     if (item->valuestring)
     {
-        newitem->valuestring = (char*)cJSON_strdup((unsigned char*)item->valuestring, &global_hooks);
+        newitem->valuestring = (char*)cJSON_strdup((unsigned char*)item->valuestring,0, &global_hooks);
         if (!newitem->valuestring)
         {
             goto fail;
@@ -2735,7 +2740,7 @@ CJSON_PUBLIC(cJSON *) cJSON_Duplicate(const cJSON *item, cJSON_bool recurse)
     }
     if (item->string)
     {
-        newitem->string = (item->type&cJSON_StringIsConst) ? item->string : (char*)cJSON_strdup((unsigned char*)item->string, &global_hooks);
+        newitem->string = (item->type&cJSON_StringIsConst) ? item->string : (char*)cJSON_strdup((unsigned char*)item->string,0, &global_hooks);
         if (!newitem->string)
         {
             goto fail;

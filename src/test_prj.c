@@ -13,9 +13,13 @@ extern void test_byte_buffer();
 extern int testcJson(void);
 extern int testMsg(void);
 extern int test_socket();
-int test_jm_client();
-int test_jm_client_rpc();
-int test_jm_client_pubsub();
+extern int test_jm_client();
+extern int test_jm_client_rpc();
+extern int test_jm_client_pubsub();
+
+extern int test_stdio_method();
+
+extern void testGetCacheItem();
 
 int main(char* argv, int argc)
 {
@@ -23,9 +27,11 @@ int main(char* argv, int argc)
 	//test_byte_buffer();
 	//testcJson();
 	//testParsecJson();
-	//testMsg();
+	testMsg();
 	//test_socket();
 	//test_jm_client();
 	//test_jm_client_rpc();
-	test_jm_client_pubsub();
+	//test_jm_client_pubsub();
+	//test_stdio_method();
+	//testGetCacheItem();
 }

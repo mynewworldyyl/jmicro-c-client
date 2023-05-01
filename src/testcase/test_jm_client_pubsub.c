@@ -12,7 +12,7 @@ extern BOOL client_recv_one_loop();
 extern void client_ws_init();
 
 static uint8_t test_onPubsubItemType2Listener(jm_pubsub_item_t *item) {
-	printf("test_onPubsubItemType2Listener: data= %s, fr= %d, type= %d \n",item->data->data, item->fr, item->type);
+	printf("test_onPubsubItemType2Listener: data= %s, fr= %d, type= %d \n",item->data, item->fr, item->type);
 
 	//client_subscribeByType();
 	/*
@@ -20,11 +20,11 @@ static uint8_t test_onPubsubItemType2Listener(jm_pubsub_item_t *item) {
 	client_unregistLoginListener(test_jmLoginListener);
 	printf("client_unregistLoginListener succesfully\n");
 	*/
-	return SUCCESS;
+	return JM_SUCCESS;
 }
 
 static uint8_t test_onPubsubItemType1Listener(jm_pubsub_item_t *item) {
-	printf("test_onPubsubItemType1Listener: data= %s, fr= %d, type= %d \n",item->data->data, item->fr, item->type);
+	printf("test_onPubsubItemType1Listener: data= %s, fr= %d, type= %d \n",item->data, item->fr, item->type);
 
 	//client_subscribeByType();
 	/*
@@ -32,11 +32,11 @@ static uint8_t test_onPubsubItemType1Listener(jm_pubsub_item_t *item) {
 	client_unregistLoginListener(test_jmLoginListener);
 	printf("client_unregistLoginListener succesfully\n");
 	*/
-	return SUCCESS;
+	return JM_SUCCESS;
 }
 
 static uint8_t test_onPubsubItemType3Listener(jm_pubsub_item_t *item) {
-	printf("test_onPubsubItemType3Listener: data= %s, fr= %d, type= %d \n",item->data->data, item->fr, item->type);
+	printf("test_onPubsubItemType3Listener: data= %s, fr= %d, type= %d \n",item->data, item->fr, item->type);
 
 	//client_subscribeByType();
 	/*
@@ -44,7 +44,7 @@ static uint8_t test_onPubsubItemType3Listener(jm_pubsub_item_t *item) {
 	client_unregistLoginListener(test_jmLoginListener);
 	printf("client_unregistLoginListener succesfully\n");
 	*/
-	return SUCCESS;
+	return JM_SUCCESS;
 }
 
 static void test_jmLoginListener(sint32_t code, char *msg, char *loginKey, sint32_t actId) {
@@ -69,6 +69,11 @@ static void test_jmLoginListener(sint32_t code, char *msg, char *loginKey, sint3
 	} else {
 		printf("test_jmLoginListener3 ∂©‘ƒ“Ï≤Ωœ˚œ¢ ß∞‹  \n");
 	}
+
+	char * topic = "/__act/dev/25500/testDeivceMsg";
+	msg_extra_data_t *extra = extra_putByte(NULL, EXTRA_KEY_PS_OP_CODE, MSG_OP_CODE_FORWARD_BY_TOPIC);
+	extra = extra_putChars(extra, EXTRA_KEY_PS_ARGS, topic, strlen(topic));
+	client_publishStrItem(topic, -126, "Hello, I am esp8266 device", extra);
 
 	/*
 	printf("client_unregistLoginListener begin \n");
@@ -112,7 +117,7 @@ int test_jm_client_pubsub()
 		//sleep(1);
 		//printf("One loop: ");
 		if(!client_recv_one_loop()) {
-			printf("client_recv_one_loop:fail\n");
+			//printf("client_recv_one_loop:fail\n");
 		}
 	}
 }

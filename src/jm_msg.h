@@ -27,12 +27,6 @@
 #define  PRIORITY_NORMAL  PRIORITY_3
 #define  PRIORITY_MAX  PRIORITY_7
 
-#define MAX_SHORT_VALUE  32767
-
-#define MAX_BYTE_VALUE  127
-
-#define MAX_INT_VALUE  (1024*1024*10)  //10M
-
 //public static final long MAX_LONG_VALUE  Long.MAX_VALUE*2
 
 //public static final byte MSG_VERSION  (byte)1
@@ -200,11 +194,16 @@ typedef union _msg_extra_data_val {
 
 typedef struct _msg_extra_data {
 	sint8_t key;
+	char* strKey;
+	//当value是数组或字符串时，是否需要free内存，对于用alloc申请的内存，
+	//一般要设置为true,以自动释放内存，如果设置为false,则需要使用者自己释放
+	BOOL neddFreeBytes;
 	msg_extra_data_val value;
 	sint8_t type;
 	uint16_t len;
 	struct _msg_extra_data *next;
 } msg_extra_data_t;
+
 
 typedef struct _jm_req {
 
@@ -306,8 +305,49 @@ typedef struct _jm_msg {
 
 	//jm_req_t *req;
 
-	//****************extra data begin*******************//
+	//用于缓存组链接，业务中无需使用，正常使用中，此值应为NULL
+	struct _jm_msg *cacheNext;
 } jm_msg_t;
+
+/***************************************EXTRA DATA OPERATION BEGIN***************************************/
+/**
+ * len  extra数据长度
+ * 编码成功返回true,失败返回false
+ */
+ICACHE_FLASH_ATTR msg_extra_data_t *extra_decode(byte_buffer_t *b);
+
+/**
+ *wl存储编码后byte的字节数
+ *编码成功返回true,失败返回false
+ */
+ICACHE_FLASH_ATTR BOOL extra_encode(msg_extra_data_t *extras, byte_buffer_t *b, uint16_t *wl,uint8_t keyType);
+
+ICACHE_FLASH_ATTR void extra_release(msg_extra_data_t *extra);
+ICACHE_FLASH_ATTR msg_extra_data_t* extra_create();
+
+//返回头节点
+ICACHE_FLASH_ATTR msg_extra_data_t * extra_pullAll(msg_extra_data_t *from, msg_extra_data_t *to);
+
+ICACHE_FLASH_ATTR msg_extra_data_t* extra_get(msg_extra_data_t *header, sint8_t key);
+ICACHE_FLASH_ATTR  sint16_t extra_getS16(msg_extra_data_t *e, sint8_t key);
+ICACHE_FLASH_ATTR  sint8_t extra_getS8(msg_extra_data_t *e, sint8_t key);
+ICACHE_FLASH_ATTR  sint64_t extra_getS64(msg_extra_data_t *e, sint8_t key);
+ICACHE_FLASH_ATTR  sint32_t extra_getS32(msg_extra_data_t *e, sint8_t key);
+ICACHE_FLASH_ATTR  char extra_getChar(msg_extra_data_t *e, sint8_t key);
+ICACHE_FLASH_ATTR  BOOL extra_getBool(msg_extra_data_t *e, sint8_t key);
+ICACHE_FLASH_ATTR  char* extra_getChars(msg_extra_data_t *e, sint8_t key);
+//ICACHE_FLASH_ATTR void msg_putExtra(jm_msg_t *msg, sint8_t key, void *val, sint8_t type);
+
+ICACHE_FLASH_ATTR msg_extra_data_t* extra_put(msg_extra_data_t *header, sint8_t key, sint8_t type);
+ICACHE_FLASH_ATTR msg_extra_data_t* extra_putByte(msg_extra_data_t *e, sint8_t key, sint8_t val);
+ICACHE_FLASH_ATTR msg_extra_data_t* extra_putShort(msg_extra_data_t *e, sint8_t key, sint16_t val);
+ICACHE_FLASH_ATTR msg_extra_data_t* extra_putInt(msg_extra_data_t *e, sint8_t key, sint32_t val);
+ICACHE_FLASH_ATTR msg_extra_data_t* extra_putLong(msg_extra_data_t *e, sint8_t key, sint64_t val);
+ICACHE_FLASH_ATTR msg_extra_data_t* extra_putChar(msg_extra_data_t *e, sint8_t key, char val);
+ICACHE_FLASH_ATTR msg_extra_data_t* extra_putBool(msg_extra_data_t *e, sint8_t key, BOOL val);
+ICACHE_FLASH_ATTR msg_extra_data_t* extra_putChars(msg_extra_data_t *e, sint8_t key, const char* val, uint16_t len);
+
+/**************************************EXTRA DATA OPERATION END**********************************/
 
 ICACHE_FLASH_ATTR BOOL msg_isUpSsl(jm_msg_t *msg);
 ICACHE_FLASH_ATTR void msg_setUpSsl(jm_msg_t *msg, BOOL f);
@@ -360,23 +400,6 @@ ICACHE_FLASH_ATTR  void msg_setUpProtocol(jm_msg_t *msg, sint8_t protocol);
 ICACHE_FLASH_ATTR  sint8_t msg_getDownProtocol(jm_msg_t *msg);
 ICACHE_FLASH_ATTR  void msg_setDownProtocol(jm_msg_t *msg, sint8_t protocol);
 
-//ICACHE_FLASH_ATTR  void msg_setInsId(jm_msg_t *msg, sint32_t *insId);
-//ICACHE_FLASH_ATTR  sint32_t msg_getInsId(jm_msg_t *msg);
-//ICACHE_FLASH_ATTR  void msg_setSignData(jm_msg_t *msg, char *data);
-//ICACHE_FLASH_ATTR  char* msg_getSignData(jm_msg_t *msg);
-//ICACHE_FLASH_ATTR  void msg_setLinkId(jm_msg_t *msg, sint64_t *insId);
-//ICACHE_FLASH_ATTR  sint64_t msg_getLinkId(jm_msg_t *msg);
-//ICACHE_FLASH_ATTR void msg_setSaltData(jm_msg_t *msg, char* data);
-//ICACHE_FLASH_ATTR char* msg_getSaltData(jm_msg_t *msg);
-//ICACHE_FLASH_ATTR  void msg_setSecData(jm_msg_t *msg, char* data);
-//ICACHE_FLASH_ATTR char* msg_getSecData(jm_msg_t *msg, char **rst);
-//ICACHE_FLASH_ATTR  void msg_setSmKeyCode(jm_msg_t *msg, sint32_t *code);
-//ICACHE_FLASH_ATTR  sint32_t msg_getSmKeyCode(jm_msg_t *msg);
-//ICACHE_FLASH_ATTR  void msg_setMethod(jm_msg_t *msg, char* method);
-//ICACHE_FLASH_ATTR  char* msg_getMethod(jm_msg_t *msg);
-//ICACHE_FLASH_ATTR  void msg_setTime(jm_msg_t *msg, sint64_t *time);
-//ICACHE_FLASH_ATTR sint64 msg_getTime(jm_msg_t *msg);
-
 ICACHE_FLASH_ATTR jm_msg_t *msg_decode(byte_buffer_t *b);
 ICACHE_FLASH_ATTR BOOL msg_encode(jm_msg_t *msg, byte_buffer_t *buf);
 ICACHE_FLASH_ATTR jm_msg_t *msg_readMessage(byte_buffer_t *buf);
@@ -386,6 +409,7 @@ ICACHE_FLASH_ATTR jm_msg_t* msg_create_ps_msg(byte_buffer_t *payload);
 ICACHE_FLASH_ATTR jm_msg_t* msg_create_msg(sint8_t tyep, byte_buffer_t *payload);
 ICACHE_FLASH_ATTR void msg_release(jm_msg_t *msg);
 
+/*
 ICACHE_FLASH_ATTR  sint16_t msg_getS16Extra(jm_msg_t *msg, sint8_t key);
 ICACHE_FLASH_ATTR  sint8_t msg_getS8Extra(jm_msg_t *msg, sint8_t key);
 ICACHE_FLASH_ATTR  sint64_t msg_getS64Extra(jm_msg_t *msg, sint8_t key);
@@ -393,7 +417,7 @@ ICACHE_FLASH_ATTR  sint32_t msg_getS32Extra(jm_msg_t *msg, sint8_t key);
 ICACHE_FLASH_ATTR  char* msg_getCharsExtra(jm_msg_t *msg, sint8_t key);
 //ICACHE_FLASH_ATTR void msg_putExtra(jm_msg_t *msg, sint8_t key, void *val, sint8_t type);
 
-ICACHE_FLASH_ATTR msg_extra_data_t* msg_getExtra(jm_msg_t *msg, sint8_t key);
+//ICACHE_FLASH_ATTR msg_extra_data_t* msg_getExtra(jm_msg_t *msg, sint8_t key);
 ICACHE_FLASH_ATTR BOOL msg_putByteExtra(jm_msg_t *msg, sint8_t key, sint8_t val);
 ICACHE_FLASH_ATTR BOOL msg_putShortExtra(jm_msg_t *msg, sint8_t key, sint16_t val);
 ICACHE_FLASH_ATTR BOOL msg_putIntExtra(jm_msg_t *msg, sint8_t key, sint32_t val);
@@ -401,7 +425,7 @@ ICACHE_FLASH_ATTR BOOL msg_putLongExtra(jm_msg_t *msg, sint8_t key, sint64_t val
 ICACHE_FLASH_ATTR BOOL msg_putCharExtra(jm_msg_t *msg, sint8_t key, char val);
 ICACHE_FLASH_ATTR BOOL msg_putBoolExtra(jm_msg_t *msg, sint8_t key, BOOL val);
 ICACHE_FLASH_ATTR BOOL msg_putCharsExtra(jm_msg_t *msg, sint8_t key, const char* val, uint16_t len);
-
+*/
 #ifdef __cplusplus
 }
 #endif

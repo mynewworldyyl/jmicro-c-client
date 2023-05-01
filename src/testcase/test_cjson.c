@@ -257,10 +257,10 @@ static void create_objects(void)
     cJSON_Delete(root);
 }
 
-int CJSON_CDECL testcJson(void)
+int testcJson(void)
 {
     /* print the version */
-    printf("Version: %s\n", cJSON_Version());
+    //printf("Version: %s\n", cJSON_Version());
 
     /* Now some samplecode for building objects concisely: */
     create_objects();
@@ -269,7 +269,7 @@ int CJSON_CDECL testcJson(void)
 }
 
 char *jsonStr = "{\"id\":0,\"flag\":1,\"topic\":\"/__act/dev/testdevice001\",\"srcClientId\":1,\"data\":\"tesads\",\"callback\":null,\"cxt\":{},\"fr\":null,\"to\":\"25500\"}";
-int CJSON_CDECL testParsecJson(void)
+int testParsecJson(void)
 {
 	cJSON *json = cJSON_ParseWithLength(jsonStr, strlen(jsonStr));
 	//cJSON *json = cJSON_Parse(jsonStr);
