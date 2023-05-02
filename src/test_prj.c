@@ -7,6 +7,7 @@
  Description : Hello World in C, Ansi-style
  ============================================================================
  */
+#include <stdio.h>
 
 extern void test_hashmap();
 extern void test_byte_buffer();
@@ -23,15 +24,16 @@ extern void testGetCacheItem();
 
 int main(char* argv, int argc)
 {
+	setbuf(stdout,NULL);
 	//test_hashmap();
 	//test_byte_buffer();
 	//testcJson();
 	//testParsecJson();
-	testMsg();
+	//testMsg();
 	//test_socket();
 	//test_jm_client();
 	//test_jm_client_rpc();
-	//test_jm_client_pubsub();
+	test_jm_client_pubsub();
 	//test_stdio_method();
 	//testGetCacheItem();
 }

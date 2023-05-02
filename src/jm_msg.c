@@ -24,13 +24,9 @@
 #include <stddef.h>
 #include "debug.h"
 #include "jm_constants.h"
-
+#include "jm_mem.h"
 
 static sint64_t msgId = 0;
-
-static msg_extra_data_t *cacheExtraItems = NULL;
-
-static jm_msg_t *cacheMsgItems;
 
 /********************EXTRA DATA OPERATION BEGIN**********************/
 
@@ -39,55 +35,35 @@ ICACHE_FLASH_ATTR void extra_release(msg_extra_data_t *extra) {
 
 	msg_extra_data_t *em = extra;
 
-	//锟斤拷锟揭碉拷锟斤拷锟斤拷锟斤拷锟揭伙拷锟皆拷兀锟斤拷圆锟斤拷氲斤拷锟斤拷锟斤拷锟斤拷锟斤拷
 	while(em) {
-		if((PREFIX_TYPE_LIST == em->type || PREFIX_TYPE_STRING == em->type)
+		if((PREFIX_TYPE_LIST == em->type || PREFIX_TYPE_STRINGG == em->type)
 				&& em->value.bytesVal && em->neddFreeBytes) {
 			os_free(em->value.bytesVal);
 		}
 
-		em->value.s64Val = 0;//8锟斤拷锟街节碉拷锟斤拷锟斤拷锟斤拷锟节达拷全锟斤拷锟斤拷0
-		em->key = 0;
-		em->type = 0;
-		em->len = 0;
+		msg_extra_data_t *n = em->next;
+		em->next = NULL;
 
-		if(em->next == NULL) break;//锟斤拷锟揭碉拷锟斤拷锟揭伙拷锟皆拷锟�
-		em = em->next;
+		cache_back(CACHE_PUBSUB_ITEM_EXTRA,em);
+
+		em = n;
+		if(em == NULL) break;
 	}
-
-	if(cacheExtraItems) {
-		//插入表头的前面
-		em->next = cacheExtraItems;
-	}
-
-	cacheExtraItems = extra;//释放元素作为表头
 }
 
 ICACHE_FLASH_ATTR msg_extra_data_t *extra_create() {
-	if(!cacheExtraItems) {
-		//没锟叫伙拷锟斤拷锟斤拷茫锟街憋拷哟锟斤拷锟�
-		msg_extra_data_t *em = (msg_extra_data_t *)os_zalloc(sizeof(struct _msg_extra_data));
-		os_memset(em,0,sizeof(struct _msg_extra_data));
-		return em;
-	}
-
-	msg_extra_data_t *em = cacheExtraItems;
-	cacheExtraItems = em->next;
-	em->next = NULL;
-
-	return em;
+	return cache_get(CACHE_PUBSUB_ITEM_EXTRA,true);
 }
-
 
 ICACHE_FLASH_ATTR msg_extra_data_t* extra_get(msg_extra_data_t *header, sint8_t key) {
 	msg_extra_data_t *em = header;
 	while(em != NULL) {
 		if(em->key == key) {
-			return header;
+			return em;
 		}
 		em = em->next;
 	}
-	 return NULL;
+	return NULL;
 }
 
 ICACHE_FLASH_ATTR msg_extra_data_t* extra_put(msg_extra_data_t *header, sint8_t key, sint8_t type) {
@@ -102,6 +78,48 @@ ICACHE_FLASH_ATTR msg_extra_data_t* extra_put(msg_extra_data_t *header, sint8_t 
 	if(em==NULL) return NULL;
 
 	em->key = key;
+	//em->value = val;
+	em->type = type;
+	em->len = 0;
+
+	if(header == NULL) {
+		em->next = NULL;
+	} else {
+		//头锟斤拷锟斤拷锟斤拷
+		em->next = header;
+		//msg->extraMap = em;
+		//msg->extraMap->next = NULL;
+	}
+	return em;
+}
+
+ICACHE_FLASH_ATTR msg_extra_data_t* extra_strKeyGet(msg_extra_data_t *header, char *key) {
+	msg_extra_data_t *em = header;
+	while(em != NULL) {
+		if(em->strKey == key) {
+			//常量池字符串内存地址肯定相等
+			return em;
+		}else if(os_strcmp(key,em->strKey)==0) {
+			//非常量，如malloc申请的内存字符串
+			return em;
+		}
+		em = em->next;
+	}
+	return NULL;
+}
+
+ICACHE_FLASH_ATTR msg_extra_data_t* extra_strKeyPut(msg_extra_data_t *header, char *strKey, sint8_t type) {
+	msg_extra_data_t *eem = extra_strKeyGet(header, strKey);
+	if(eem != NULL) {
+		eem->strKey = strKey;
+		eem->type = type;
+		return eem;
+	}
+
+	msg_extra_data_t *em = extra_create();
+	if(em==NULL) return NULL;
+
+	em->strKey = strKey;
 	//em->value = val;
 	em->type = type;
 	em->len = 0;
@@ -215,7 +233,7 @@ ICACHE_FLASH_ATTR static msg_extra_data_t * extra_decodeVal(byte_buffer_t *b) {
 		} else {
 			rst->value.charVal = v;
 		}
-	}else if(PREFIX_TYPE_STRING == type){
+	}else if(PREFIX_TYPE_STRINGG == type){
 
 		sint8_t slen;
 		if(!bb_get_s8(b,&slen)) {
@@ -335,7 +353,7 @@ ICACHE_FLASH_ATTR static BOOL extra_encodeVal(msg_extra_data_t *extras, byte_buf
 			return false ;
 		}
 		return true;
-	} else if (PREFIX_TYPE_STRING == type) {
+	} else if (PREFIX_TYPE_STRINGG == type) {
 		sint8_t len = extras->len;
 		if(len < MAX_BYTE_VALUE) {
 			bb_put_s8(b,len);
@@ -397,25 +415,34 @@ ICACHE_FLASH_ATTR msg_extra_data_t *extra_decode(byte_buffer_t *b){
 	while(eleLen > 0) {
 		eleLen--;
 
-		msg_extra_data_t *v = extra_decodeVal(b);
-		if(v == NULL) {
-			continue;
-		}
+		char *p = NULL;
+		sint8_t k = 0;
 
 		if(keyType == EXTRA_KEY_TYPE_STRING) {//字符串
 			uint8_t flag;
-			char *k = bb_readString(b,&flag);
+			p = bb_readString(b,&flag);
 			if(flag != JM_SUCCESS){
 				INFO("_c_pubsubItemParseBin fail to read keyType\n");
 				return NULL;
 			}
-			v->strKey = k;
+			//v->strKey = k;
 		} else {
 			sint8_t k;
 			if(!bb_get_s8(b,&k)) {
 				INFO("ERROR:extra_decode read key error\n");
 				return NULL;
 			}
+			//v->key = k;
+		}
+
+		msg_extra_data_t *v = extra_decodeVal(b);
+		if(v == NULL) {
+			continue;
+		}
+
+		if(keyType == EXTRA_KEY_TYPE_STRING) {//字符串
+			v->strKey = p;
+		} else {
 			v->key = k;
 		}
 
@@ -461,13 +488,21 @@ ICACHE_FLASH_ATTR BOOL extra_encode(msg_extra_data_t *extras, byte_buffer_t *b, 
 		return false;
 	}
 
+	BOOL strKey = keyType == EXTRA_KEY_TYPE_STRING;
 	while(extras != NULL) {
-		if(!bb_put_s8(b, extras->key)) {
-			INFO("extra_encode fail to write key: %d", extras->key);
-			return false;
+		if(strKey) {
+			if(!bb_writeString(b, extras->strKey,os_strlen(extras->strKey))) {
+				INFO("extra_encode fail to write string key: %s", extras->strKey);
+				return false;
+			}
+		}else {
+			if(!bb_put_s8(b, extras->key)) {
+				INFO("extra_encode fail to write key: %d", extras->key);
+				return false;
+			}
 		}
 
-		if((PREFIX_TYPE_STRING == extras->type || PREFIX_TYPE_LIST == extras->type) &&
+		if((PREFIX_TYPE_STRINGG == extras->type || PREFIX_TYPE_LIST == extras->type) &&
 				extras->value.bytesVal == NULL) {
 			if(!bb_put_s8(b, PREFIX_TYPE_NULL)) {
 				INFO("extra_encode fail to write PREFIX_TYPE_NULL: %d", PREFIX_TYPE_NULL);
@@ -607,7 +642,7 @@ ICACHE_FLASH_ATTR msg_extra_data_t* extra_putBool(msg_extra_data_t *e, sint8_t k
 }
 
 ICACHE_FLASH_ATTR msg_extra_data_t* extra_putChars(msg_extra_data_t *e, sint8_t key, const char* val, uint16_t len){
-	msg_extra_data_t *eem = extra_put(e, key,PREFIX_TYPE_STRING);
+	msg_extra_data_t *eem = extra_put(e, key,PREFIX_TYPE_STRINGG);
 	if(eem == NULL) {
 		return NULL;
 	}
@@ -625,26 +660,11 @@ ICACHE_FLASH_ATTR void msg_release(jm_msg_t *msg) {
 
 	extra_release(msg->extraMap);
 
-	os_memset(msg,0,sizeof(struct _jm_msg));//锟斤拷锟斤拷诖锟�
-	if(cacheMsgItems) {
-		msg->cacheNext = cacheMsgItems;
-	}
-	cacheMsgItems = msg;
+	cache_back(CACHE_MESSAGE,msg);
 }
 
 ICACHE_FLASH_ATTR jm_msg_t* msg_create() {
-	if(!cacheMsgItems) {
-		//没锟叫伙拷锟斤拷锟斤拷茫锟街憋拷哟锟斤拷锟�
-		jm_msg_t *em = (jm_msg_t *)os_zalloc(sizeof(struct _jm_msg));
-		os_memset(em,0,sizeof(struct _jm_msg));
-		return em;
-	}
-
-	jm_msg_t *em = cacheMsgItems;
-	cacheMsgItems = em->cacheNext;
-	em->cacheNext = NULL;
-
-	return em;
+	return cache_get(CACHE_MESSAGE,true);
 }
 
 

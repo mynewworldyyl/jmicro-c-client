@@ -199,7 +199,7 @@ typedef struct _msg_extra_data {
 	//一般要设置为true,以自动释放内存，如果设置为false,则需要使用者自己释放
 	BOOL neddFreeBytes;
 	msg_extra_data_val value;
-	sint8_t type;
+	sint8_t type;//值的类型
 	uint16_t len;
 	struct _msg_extra_data *next;
 } msg_extra_data_t;

@@ -450,7 +450,7 @@ ICACHE_FLASH_ATTR BOOL bb_writeString(byte_buffer_t *buf, char *s, uint16_t len)
 }
 
 
-ICACHE_FLASH_ATTR char* bb_readString(byte_buffer_t *buf,uint8_t *flag) {
+ICACHE_FLASH_ATTR char* bb_readString(byte_buffer_t *buf,sint8_t *flag) {
 
 		*flag = JM_SUCCESS;//默认成功
 		uint32_t len = _bb_get_u8(buf);
@@ -891,13 +891,12 @@ BOOL ICACHE_FLASH_ATTR bb_put_s32(byte_buffer_t *buf, sint32_t x) {
 	}
 
 	if(NET_DATA_BIG_END) {
-		//锟斤拷锟�
 		bb_put_u8(buf,x>>24 & 0xFF);
 		bb_put_u8(buf,x>>16 & 0xFF);
 		bb_put_u8(buf,x>>8 & 0xFF);
 		bb_put_u8(buf,x & 0xFF);
 	} else {
-		//小锟斤拷
+		//
 		bb_put_u8(buf,x & 0xFF);
 		bb_put_u8(buf,x>>8 & 0xFF);
 		bb_put_u8(buf,x>>16 & 0xFF);

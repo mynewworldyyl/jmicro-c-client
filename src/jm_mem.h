@@ -3,6 +3,12 @@
 
 #include "c_types.h"
 
+#define CACHE_PUBSUB_ITEM "C_PS_ITEM_"
+#define CACHE_PUBSUB_ITEM_EXTRA "C_PS_ITEM_EXTRA_"
+
+#define CACHE_MESSAGE "C_MESSAGE_"
+#define CACHE_MESSAGE_EXTRA "C_MESSAGE_EXTRA_"
+
 typedef struct _jm_hash_map_item {
 	char *key; //KEY
 	void* val; //Value

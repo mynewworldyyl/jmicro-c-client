@@ -14,18 +14,7 @@
 
 #include "c_types.h"
 
-#define CACHE_PUBSUB_ITEM "C_PS_ITEM_"
-#define CACHE_PUBSUB_ITEM_EXTRA "C_PS_ITEM_EXTRA_"
 
-#define CACHE_MESSAGE "C_MESSAGE_"
-#define CACHE_MESSAGE_EXTRA "C_MESSAGE_EXTRA_"
-
-//第5，6两位一起表示data字段的编码类型
-#define FLAG_DATA_TYPE 5
-#define FLAG_DATA_STRING 0
-#define FLAG_DATA_BIN 1
-#define FLAG_DATA_JSON 2
-#define FLAG_DATA_NONE 3
 
 #define client_setPSItemDataType(v,flag) (*flag = (v << FLAG_DATA_TYPE) | *flag)
 
@@ -167,6 +156,9 @@ ICACHE_FLASH_ATTR client_send_msg_result_t client_invokeRpcWithStrArgs(sint32_t 
  */
 ICACHE_FLASH_ATTR client_send_msg_result_t client_invokeRpc(sint32_t mcode, byte_buffer_t *payload,
 		client_rpc_callback_fn callback, void *cbArgs);
+
+ICACHE_FLASH_ATTR void client_initPubsubItem(jm_pubsub_item_t *item,uint8_t dataType);
+ICACHE_FLASH_ATTR msg_extra_data_t * client_topicForwardExtra(char *topic);
 
 /**
  * 发送异步消息

@@ -77,6 +77,7 @@ static client_login_listener_fn loginLises[llSize]={NULL};//鐘舵�侀敓鏂�
 
 static char *loginKey = NULL;
 static sint32_t actId = 0;
+static sint32_t clientId = 0;
 static sint32_t loginCode = LOGOUT;//榛橀敓鏂ゆ嫹娌￠敓鍙鎷峰綍
 static char *loginMsg  = NULL;
 
@@ -584,7 +585,7 @@ static ICACHE_FLASH_ATTR client_send_msg_result_t _c_pubsubOpMsgHandle(jm_msg_t 
 	return JM_SUCCESS;
 }
 
-ICACHE_FLASH_ATTR BOOL _client_addListenerItem(ps_listener_map *m, client_PubsubListenerFn listener, sint8_t type){
+ICACHE_FLASH_ATTR BOOL _c_addListenerItem(ps_listener_map *m, client_PubsubListenerFn listener, sint8_t type){
 	if(m->listeners) {
 		//閿熺獤鎾呮嫹閿熸枻鎷烽敓鏂ゆ嫹閿熸枻鎷烽敓瑙ｏ紝閿熶粙鐪嬮敓瑙掑嚖鎷烽敓鏂ゆ嫹閿熼叺顑紮鎷烽敓鏂ゆ嫹閿熸枻鎷烽敓锟�
 		ps_listener_item_t *item = m->listeners;
@@ -621,7 +622,7 @@ ICACHE_FLASH_ATTR BOOL _client_addListenerItem(ps_listener_map *m, client_Pubsub
 	return true;
 }
 
-ICACHE_FLASH_ATTR BOOL _client_doSubscribe(ps_listener_map *m){
+ICACHE_FLASH_ATTR BOOL _c_doSubscribe(ps_listener_map *m){
 	jm_msg_t *msg = NULL;
 
 	msg = msg_create_msg(MSG_TYPE_PUBSUB,NULL);
@@ -673,13 +674,13 @@ ICACHE_FLASH_ATTR BOOL client_subscribe(char *topic, client_PubsubListenerFn lis
 		isNewTopic = true;
 	}
 
-	if(!_client_addListenerItem(m,listener,type)) {
+	if(!_c_addListenerItem(m,listener,type)) {
 		INFO("ERROR: client_subscribe add lis item fail topic: %s \n",topic);
 		return false;
 	}
 
 	if(isNewTopic) {
-		_client_doSubscribe(m);
+		_c_doSubscribe(m);
 		INFO("client_subscribe subscribe success\n");
 	}else {
 		INFO("client_subscribe topic is subscribed %s\n",topic);
@@ -800,7 +801,7 @@ static ICACHE_FLASH_ATTR void _c_dispachPubsubItem(jm_pubsub_item_t *it){
 	}
 }
 
-static ICACHE_FLASH_ATTR uint8_t setDataFlag(int idx, uint8_t dataFlag) {
+static ICACHE_FLASH_ATTR uint8_t _c_setDataFlag(int idx, uint8_t dataFlag) {
 	return dataFlag | (1 << idx);
 }
 
@@ -808,11 +809,11 @@ static ICACHE_FLASH_ATTR uint8_t setDataFlag(int idx, uint8_t dataFlag) {
 	this.dataFlag &= ~(1 << idx);
 }*/
 
-static ICACHE_FLASH_ATTR BOOL isDataFlag(int idx, uint8_t dataFlag) {
+static ICACHE_FLASH_ATTR BOOL _c_isDataFlag(int idx, uint8_t dataFlag) {
 	return (dataFlag & (1 << idx)) != 0;
 }
 
-static ICACHE_FLASH_ATTR uint8_t getDataType(uint8_t flag) {
+static ICACHE_FLASH_ATTR uint8_t _c_getDataType(uint8_t flag) {
 	return (flag >> FLAG_DATA_TYPE) & 0x03;
 }
 
@@ -839,22 +840,22 @@ static ICACHE_FLASH_ATTR void _c_pubsubItemParseBin(jm_msg_t *msg){
 		return;
 	}
 
-	if(isDataFlag(0,it->dataFlag)) {
+	if(_c_isDataFlag(0,it->dataFlag)) {
 		if(!bb_get_s64(buf,&it->id)) {
 			INFO("_c_pubsubItemParseBin fail to read id\n");
 			return;
 		}
 	}
 
-	if(isDataFlag(1,it->dataFlag)) {
+	if(_c_isDataFlag(1,it->dataFlag)) {
 		if(!bb_get_s8(buf,&it->type)) {
 			INFO("_c_pubsubItemParseBin fail to read type\n");
 			return;
 		}
 	}
 
-	if(isDataFlag(2,it->dataFlag)) {
-		uint8_t flag;
+	if(_c_isDataFlag(2,it->dataFlag)) {
+		sint8_t flag;
 		it->topic  = bb_readString(buf,&flag);
 		if(flag != JM_SUCCESS){
 			INFO("_c_pubsubItemParseBin fail to read topic\n");
@@ -862,22 +863,22 @@ static ICACHE_FLASH_ATTR void _c_pubsubItemParseBin(jm_msg_t *msg){
 		}
 	}
 
-	if(isDataFlag(3,it->dataFlag)) {
+	if(_c_isDataFlag(3,it->dataFlag)) {
 		if(!bb_get_s32(buf,&it->srcClientId)) {
 			INFO("_c_pubsubItemParseBin fail to read srcClientId\n");
 			return;
 		}
 	}
 
-	if(isDataFlag(4,it->dataFlag)) {
+	if(_c_isDataFlag(4,it->dataFlag)) {
 		if(!bb_get_s32(buf,&it->to)) {
 			INFO("_c_pubsubItemParseBin fail to read to\n");
 			return;
 		}
 	}
 
-	if(isDataFlag(5,it->dataFlag)) {
-		uint8_t flag;
+	if(_c_isDataFlag(5,it->dataFlag)) {
+		sint8_t flag;
 		it->callback  = bb_readString(buf,&flag);
 		if(flag != JM_SUCCESS){
 			INFO("_c_pubsubItemParseBin fail to read callback\n");
@@ -885,20 +886,20 @@ static ICACHE_FLASH_ATTR void _c_pubsubItemParseBin(jm_msg_t *msg){
 		}
 	}
 
-	if(isDataFlag(6,it->dataFlag)) {
+	/*if(_c_isDataFlag(6,it->dataFlag)) {
 		if(!bb_get_u8(buf,&it->delay)) {
 			INFO("_c_pubsubItemParseBin fail to read delay\n");
 			return;
 		}
-	}
+	}*/
 
-	if(isDataFlag(7,it->dataFlag)) {
+	if(_c_isDataFlag(6,it->dataFlag)) {
 		//extra
 		it->cxt = extra_decode(buf);
 	}
 
-	if(isDataFlag(8,it->dataFlag)) {
-		uint8 dt = getDataType(it->flag);
+	if(_c_isDataFlag(7,it->dataFlag)) {
+		uint8 dt = _c_getDataType(it->flag);
 		if(FLAG_DATA_BIN == dt) {
 			//依赖于接口实现数据编码，服务提供方和使用方需要协商好数据编码和解码方式
 			/*if(data instanceof ISerializeObject) {
@@ -920,14 +921,14 @@ static ICACHE_FLASH_ATTR void _c_pubsubItemParseBin(jm_msg_t *msg){
 
 		}else if(FLAG_DATA_STRING == dt){
 			//this.data = in.readUTF();
-			uint8_t flag;
+			sint8_t flag;
 			it->data  = bb_readString(buf,&flag);
 			if(flag != JM_SUCCESS){
 				INFO("_c_pubsubItemParseBin fail to read string data\n");
 				return;
 			}
 		}else if(FLAG_DATA_JSON== dt){
-			uint8_t flag;
+			sint8_t flag;
 			char *p  = bb_readString(buf,&flag);
 			if(flag != JM_SUCCESS){
 				INFO("_c_pubsubItemParseBin fail to read json data\n");
@@ -1054,6 +1055,17 @@ static ICACHE_FLASH_ATTR client_send_msg_result_t _c_pubsubMsgHandle(jm_msg_t *m
 	return JM_SUCCESS;
 }
 
+ICACHE_FLASH_ATTR client_send_msg_result_t client_publishStrItemByTopic(char *topic, sint8_t type, char *content/*, msg_extra_data_t *extra*/){
+	if(topic == NULL || os_strlen(topic) == 0) {
+		INFO("client_publishStrItem topic is NULL\n");
+		return INVALID_PS_DATA;
+	}
+
+	msg_extra_data_t *msgExtra = extra_putByte(NULL, EXTRA_KEY_PS_OP_CODE, MSG_OP_CODE_FORWARD_BY_TOPIC);
+	msgExtra = extra_putChars(msgExtra, EXTRA_KEY_PS_ARGS, topic, strlen(topic));
+	return client_publishStrItem(topic, type, content, msgExtra);
+}
+
 /**
  * 閿熸枻鎷烽敓鏂ゆ嫹閿熷眾姝ラ敓鏂ゆ嫹鎭�
  */
@@ -1079,9 +1091,6 @@ ICACHE_FLASH_ATTR client_send_msg_result_t client_publishStrItem(char *topic, si
 		bb_put_chars(buf,content,len);
 	}*/
 
-	item->data = content;
-	client_setPSItemDataType(FLAG_DATA_STRING, &item->flag);
-
 	item->flag = 0;
 	item->cxt = NULL;
 	//item->data = buf;
@@ -1093,8 +1102,13 @@ ICACHE_FLASH_ATTR client_send_msg_result_t client_publishStrItem(char *topic, si
 	item->id = ++msgId;
 	item->type = type;
 
+	item->data = content;
+	client_setPSItemDataType(FLAG_DATA_STRING, &item->flag);
+
 	INFO("client_publishStrItem publish item: %s, %u\n",item->topic,item->id);
 	client_send_msg_result_t rst = client_publishPubsubItem(item, extra);
+
+	extra_release(item->cxt);
 
 	cache_back(CACHE_PUBSUB_ITEM,item);
 	//os_free(item);
@@ -1105,7 +1119,7 @@ ICACHE_FLASH_ATTR client_send_msg_result_t client_publishStrItem(char *topic, si
 	return rst;
 }
 
-ICACHE_FLASH_ATTR byte_buffer_t *_client_serialPsItem(jm_pubsub_item_t *it){
+ICACHE_FLASH_ATTR byte_buffer_t *_c_serialPsItem(jm_pubsub_item_t *it){
 
 	byte_buffer_t *buf = bb_create(256);
 	if(buf == NULL) {
@@ -1113,15 +1127,15 @@ ICACHE_FLASH_ATTR byte_buffer_t *_client_serialPsItem(jm_pubsub_item_t *it){
 		return NULL;
 	}
 
-	if(it->id != 0) it->dataFlag=setDataFlag(0,it->dataFlag);
-	if(it->type != 0) it->dataFlag=setDataFlag(1,it->dataFlag);
-	if(it->topic != NULL) it->dataFlag=setDataFlag(2,it->dataFlag);
-	if(it->srcClientId != 0) it->dataFlag=setDataFlag(3,it->dataFlag);
-	if(it->to != 0) it->dataFlag=setDataFlag(4,it->dataFlag);
-	if(it->callback != NULL) it->dataFlag=setDataFlag(5,it->dataFlag);
-	if(it->delay != 0) it->dataFlag=setDataFlag(6,it->dataFlag);
-	if(it->cxt != NULL) it->dataFlag=setDataFlag(7,it->dataFlag);
-	if(it->data != NULL) it->dataFlag=setDataFlag(8,it->dataFlag);
+	if(it->id != 0) it->dataFlag=_c_setDataFlag(0,it->dataFlag);
+	if(it->type != 0) it->dataFlag=_c_setDataFlag(1,it->dataFlag);
+	if(it->topic != NULL) it->dataFlag=_c_setDataFlag(2,it->dataFlag);
+	if(it->srcClientId != 0) it->dataFlag=_c_setDataFlag(3,it->dataFlag);
+	if(it->to != 0) it->dataFlag=_c_setDataFlag(4,it->dataFlag);
+	if(it->callback != NULL) it->dataFlag=_c_setDataFlag(5,it->dataFlag);
+	//if(it->delay != 0) it->dataFlag=_c_setDataFlag(6,it->dataFlag);
+	if(it->cxt != NULL) it->dataFlag=_c_setDataFlag(6,it->dataFlag);
+	if(it->data != NULL) it->dataFlag=_c_setDataFlag(7,it->dataFlag);
 
 	bb_put_u8(buf,it->dataFlag);
 	bb_put_u8(buf,it->flag);
@@ -1169,28 +1183,32 @@ ICACHE_FLASH_ATTR byte_buffer_t *_client_serialPsItem(jm_pubsub_item_t *it){
 		}
 	}
 
-	if(it->delay != 0) {
+	/*if(it->delay != 0) {
 		if(!bb_put_u8(buf,it->delay)) {
 			INFO("_client_serialItem write delay error %s\n",it->delay);
 			return NULL;
 		}
-	}
+	}*/
 
 	if(it->cxt != NULL) {
 		uint16_t len;
-		if(!extra_encode(buf,it->cxt,&len,EXTRA_KEY_TYPE_STRING)){
+		if(!extra_encode(buf, it->cxt, &len, EXTRA_KEY_TYPE_STRING)){
 			INFO("_client_serialItem write cxt error\n");
 			return NULL;
 		}
 	}
 
 	if(it->data != NULL) {
-		uint8 dt = getDataType(it->flag);
+		uint8 dt = _c_getDataType(it->flag);
 		if(FLAG_DATA_BIN == dt) {
 			byte_buffer_t *bb = (byte_buffer_t*)it->data;
-			if(!bb_put_bytes(buf,bb,bb_readable_len(bb))) {
-				INFO("_client_serialItem write byte_buffer error %d\n",bb_readable_len(bb));
-				return NULL;
+			uint16_t len = bb_readable_len(bb);
+			bb_put_u16(buf,len);
+			if(len > 0) {
+				if(!bb_put_buf(buf,bb)) {
+					INFO("_client_serialItem write byte_buffer error %d\n",bb_readable_len(bb));
+					return NULL;
+				}
 			}
 		}else if(FLAG_DATA_STRING == dt){
 			char *bb = (char*)it->data;
@@ -1204,7 +1222,7 @@ ICACHE_FLASH_ATTR byte_buffer_t *_client_serialPsItem(jm_pubsub_item_t *it){
 				INFO("_client_serialItem write String JSON error %s\n",bb);
 				return NULL;
 			}
-		} else if(FLAG_DATA_NONE == dt){
+		} else if(FLAG_DATA_EXTRA == dt){
 			//对几种基本数据类型做编码
 			uint16_t wl;
 			if(!extra_encode(it->data,buf,&wl,EXTRA_KEY_TYPE_STRING)){
@@ -1220,7 +1238,7 @@ ICACHE_FLASH_ATTR byte_buffer_t *_client_serialPsItem(jm_pubsub_item_t *it){
 	return buf;
 }
 
-ICACHE_FLASH_ATTR static byte_buffer_t* _client_psItem2Json(jm_pubsub_item_t *item) {
+ICACHE_FLASH_ATTR static byte_buffer_t* _c_psItem2Json(jm_pubsub_item_t *item) {
 	cJSON *json = cJSON_CreateObject();
 
 	//cJSON *ji = cJSON_CreateNumber(item->flag);
@@ -1271,6 +1289,25 @@ ICACHE_FLASH_ATTR static byte_buffer_t* _client_psItem2Json(jm_pubsub_item_t *it
 	return buf;
 }
 
+ICACHE_FLASH_ATTR void client_initPubsubItem(jm_pubsub_item_t *item,uint8_t dataType){
+	item->flag = 0;
+	item->cxt = NULL;
+	item->delay = 0;
+	item->to = 0;
+	item->topic = NULL;
+	item->type = 0;
+	item->fr = actId;
+	item->srcClientId = clientId;
+	item->id = ++msgId;
+	client_setPSItemDataType(dataType, &item->flag);
+}
+
+ICACHE_FLASH_ATTR msg_extra_data_t * client_topicForwardExtra(char *topic) {
+	msg_extra_data_t *msgExtra = extra_putByte(NULL, EXTRA_KEY_PS_OP_CODE, MSG_OP_CODE_FORWARD_BY_TOPIC);
+	msgExtra = extra_putChars(msgExtra, EXTRA_KEY_PS_ARGS, topic, strlen(topic));
+	return msgExtra;
+}
+
 /**
  *
  */
@@ -1282,13 +1319,16 @@ ICACHE_FLASH_ATTR client_send_msg_result_t client_publishPubsubItem(jm_pubsub_it
 
 	INFO("client_publishPubsubItem create item JOSN body\n");
 
-    byte_buffer_t *buf = _client_serialPsItem(item);
+    byte_buffer_t *buf = _c_serialPsItem(item);
 
 	jm_msg_t* msg = msg_create_ps_msg(buf);
 	if(msg == NULL) {
 		INFO("client_publishPubsubItem msg is NULL : %s, %u\n",item->topic,item->id);
 		return MEMORY_OUTOF_RANGE;
 	}
+
+	msg_setDownProtocol(msg, PROTOCOL_BIN);
+	msg_setUpProtocol(msg, PROTOCOL_BIN);
 
 	msg->extraMap = extra_pullAll(extra, msg->extraMap);
 
@@ -1297,6 +1337,7 @@ ICACHE_FLASH_ATTR client_send_msg_result_t client_publishPubsubItem(jm_pubsub_it
 	INFO("client_publishPubsubItem End send result: \n",sendRst);
 
 	//閿熼叺鍑ゆ嫹閿熻妭杈炬嫹
+	//extra_release(msg->extraMap);
 	msg_release(msg);
 
 	return sendRst;
@@ -1340,7 +1381,7 @@ ICACHE_FLASH_ATTR BOOL client_socketConedCb(){
 		ps_listener_map *pi = ps_listener;
 		while(pi) {
 			INFO("client_socketConedCb resub topic: %s",pi->topic);
-			_client_doSubscribe(pi);
+			_c_doSubscribe(pi);
 			pi = pi->next;
 		}
 	}

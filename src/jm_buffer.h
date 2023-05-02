@@ -20,6 +20,14 @@
 #define EXTRA_KEY_TYPE_BYTE 0
 #define EXTRA_KEY_TYPE_STRING 1
 
+//第5，6两位一起表示data字段的编码类型
+#define FLAG_DATA_TYPE 5
+
+#define FLAG_DATA_STRING 0
+#define FLAG_DATA_BIN 1
+#define FLAG_DATA_JSON 2
+#define FLAG_DATA_EXTRA 3
+
 #define BB_EMPTY 0x01 //锟秸伙拷锟斤拷
 #define BB_FULL 0x02 //锟斤拷锟斤拷锟斤拷
 
@@ -86,7 +94,7 @@ BOOL ICACHE_FLASH_ATTR bb_reset(byte_buffer_t *buf);
 uint16_t ICACHE_FLASH_ATTR bb_get_rpos(byte_buffer_t *buf);
 uint16_t ICACHE_FLASH_ATTR bb_get_wpos(byte_buffer_t *buf);
 
-ICACHE_FLASH_ATTR char* bb_readString(byte_buffer_t *buf,uint8_t *flag);
+ICACHE_FLASH_ATTR char* bb_readString(byte_buffer_t *buf,sint8_t *flag);
 
 BOOL ICACHE_FLASH_ATTR bb_set_rpos(byte_buffer_t *buf, uint16_t rpos);
 BOOL ICACHE_FLASH_ATTR bb_set_wpos(byte_buffer_t *buf, uint16_t wpos);
@@ -117,7 +125,7 @@ char* ICACHE_FLASH_ATTR bb_read_chars(byte_buffer_t *buf);
 BOOL ICACHE_FLASH_ATTR bb_get_bytes(byte_buffer_t *buf, uint8_t *bytes, uint16_t len);
 BOOL ICACHE_FLASH_ATTR bb_get_chars(byte_buffer_t *buf, char *chars, uint16_t len);
 BOOL ICACHE_FLASH_ATTR bb_get_buf(byte_buffer_t *buf, byte_buffer_t *dest, uint16_t len);
-ICACHE_FLASH_ATTR uint8 bb_writeString(byte_buffer_t *buf, char *str, uint16_t len);
+ICACHE_FLASH_ATTR BOOL bb_writeString(byte_buffer_t *buf, char *str, uint16_t len);
 
 //取锟斤拷锟斤拷锟斤拷指锟斤拷位锟矫碉拷一锟斤拷锟街节ｏ拷锟剿凤拷锟斤拷锟斤拷锟侥憋拷锟街革拷锟斤拷锟�
 char ICACHE_FLASH_ATTR bb_get_by_index(byte_buffer_t *buf,  uint16_t index);
