@@ -16,7 +16,7 @@
 #include "../jm_client.h"
 
 #define PORT 9092
-#define IP "127.0.0.1"
+#define IP "192.168.3.41"
 #define USERAGENT "ApOgEE MinGW Socket Client 1.0"
 
 static int client_socket = 0;
