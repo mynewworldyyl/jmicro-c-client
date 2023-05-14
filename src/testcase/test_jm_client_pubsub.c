@@ -53,24 +53,24 @@ static uint8_t test_onPubsubItemType3Listener(jm_pubsub_item_t *item) {
 static void test_jmLoginListener(sint32_t code, char *msg, char *loginKey, sint32_t actId) {
 	printf("Listener1 got login result: %s, %s, %d, %d\n",loginKey,msg,code,actId);
 
-	printf("test_jmLoginListener ¶©ÔÄÒì²½ÏûÏ¢ begin \n");
+	printf("test_jmLoginListener ï¿½ï¿½ï¿½ï¿½ï¿½ì²½ï¿½ï¿½Ï¢ begin \n");
 
 	if(client_subscribeByType(test_onPubsubItemType1Listener,1)) {
-		printf("test_jmLoginListener1 ¶©ÔÄÒì²½ÏûÏ¢³É¹¦  \n");
+		printf("test_jmLoginListener1 ï¿½ï¿½ï¿½ï¿½ï¿½ì²½ï¿½ï¿½Ï¢ï¿½É¹ï¿½  \n");
 	} else {
-		printf("test_jmLoginListener1 ¶©ÔÄÒì²½ÏûÏ¢Ê§°Ü  \n");
+		printf("test_jmLoginListener1 ï¿½ï¿½ï¿½ï¿½ï¿½ì²½ï¿½ï¿½Ï¢Ê§ï¿½ï¿½  \n");
 	}
 
 	if(client_subscribeByType(test_onPubsubItemType2Listener,2)) {
-		printf("test_jmLoginListener2 ¶©ÔÄÒì²½ÏûÏ¢³É¹¦  \n");
+		printf("test_jmLoginListener2 ï¿½ï¿½ï¿½ï¿½ï¿½ì²½ï¿½ï¿½Ï¢ï¿½É¹ï¿½  \n");
 	} else {
-		printf("test_jmLoginListener2 ¶©ÔÄÒì²½ÏûÏ¢Ê§°Ü  \n");
+		printf("test_jmLoginListener2 ï¿½ï¿½ï¿½ï¿½ï¿½ì²½ï¿½ï¿½Ï¢Ê§ï¿½ï¿½  \n");
 	}
 
 	if(client_subscribeByType(test_onPubsubItemType3Listener,3)) {
-		printf("test_jmLoginListener3 ¶©ÔÄÒì²½ÏûÏ¢³É¹¦  \n");
+		printf("test_jmLoginListener3 ï¿½ï¿½ï¿½ï¿½ï¿½ì²½ï¿½ï¿½Ï¢ï¿½É¹ï¿½  \n");
 	} else {
-		printf("test_jmLoginListener3 ¶©ÔÄÒì²½ÏûÏ¢Ê§°Ü  \n");
+		printf("test_jmLoginListener3 ï¿½ï¿½ï¿½ï¿½ï¿½ì²½ï¿½ï¿½Ï¢Ê§ï¿½ï¿½  \n");
 	}
 
 	char *topic = "/__act/dev/25500/testDeivceMsg";
@@ -142,16 +142,16 @@ ICACHE_FLASH_ATTR client_send_msg_result_t test_publishExtraDataItem(char *topic
 	item->type = 0;
 	item->topic = topic;
 
-	msg_extra_data_t *extraData = extra_strKeyPut(NULL, "psItemExtraData0", PREFIX_TYPE_BYTE);
-	extraData->value.s8Val = 33;
+	msg_extra_data_t *header = extra_strKeyPut(NULL, "psItemExtraData0", PREFIX_TYPE_BYTE);
+	header->value.s8Val = 33;
 
 	char *pstr = "hello ps extra data";
-	extraData = extra_strKeyPut(extraData, "psItemExtraData1", PREFIX_TYPE_STRINGG);
+	msg_extra_data_t *extraData = extra_strKeyPut(header, "psItemExtraData1", PREFIX_TYPE_STRINGG);
 	extraData->value.bytesVal = pstr;
 	extraData->len = strlen(pstr);
 	extraData->neddFreeBytes = false;
 
-	item->data = extraData;
+	item->data = header;
 
 	INFO("test_publishExtraDataItem publish item topic: %s, %u\n", item->topic, item->id);
 
@@ -237,8 +237,8 @@ int test_jm_client_pubsub()
 
 
 
-	client_ws_init();//½¨Á¢TCPÁ¬½Ó
-	client_init("test00","1");//³õÊ¼»¯¿Í»§¶Ë,µÇÂ¼ÎïÁªÍøÆ½Ì¨
+	client_ws_init();
+	client_init("test00","1",true);
 
 	client_registLoginListener(test_jmLoginListener);
 	//client_registLoginListener(test_jmLoginListener2);

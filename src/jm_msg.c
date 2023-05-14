@@ -39,6 +39,8 @@ ICACHE_FLASH_ATTR void extra_release(msg_extra_data_t *extra) {
 		if((PREFIX_TYPE_LIST == em->type || PREFIX_TYPE_STRINGG == em->type)
 				&& em->value.bytesVal && em->neddFreeBytes) {
 			os_free(em->value.bytesVal);
+		}else if(PREFIX_TYPE_MAP == em->type) {
+			extra_release(em->value.bytesVal);
 		}
 
 		msg_extra_data_t *n = em->next;
@@ -111,7 +113,6 @@ ICACHE_FLASH_ATTR msg_extra_data_t* extra_strKeyGet(msg_extra_data_t *header, ch
 ICACHE_FLASH_ATTR msg_extra_data_t* extra_strKeyPut(msg_extra_data_t *header, char *strKey, sint8_t type) {
 	msg_extra_data_t *eem = extra_strKeyGet(header, strKey);
 	if(eem != NULL) {
-		eem->strKey = strKey;
 		eem->type = type;
 		return eem;
 	}
@@ -123,16 +124,16 @@ ICACHE_FLASH_ATTR msg_extra_data_t* extra_strKeyPut(msg_extra_data_t *header, ch
 	//em->value = val;
 	em->type = type;
 	em->len = 0;
+	em->next = NULL;
 
-	if(header == NULL) {
-		em->next = NULL;
-	} else {
-		//头锟斤拷锟斤拷锟斤拷
-		em->next = header;
-		//msg->extraMap = em;
-		//msg->extraMap->next = NULL;
-	}
-	return em;
+	if(header == NULL) return em;
+
+	msg_extra_data_t *tail = header;
+	while(tail->next != NULL) tail = tail->next; //找到最后一个元素
+
+	tail->next = em; //加到最后一个元素
+
+	return em;  //永远返回新增加的元素
 }
 
 ICACHE_FLASH_ATTR static msg_extra_data_t * extra_decodeVal(byte_buffer_t *b) {
@@ -149,7 +150,6 @@ ICACHE_FLASH_ATTR static msg_extra_data_t * extra_decodeVal(byte_buffer_t *b) {
 	if(type == PREFIX_TYPE_NULL) {
 		rst->value.bytesVal = NULL;
 	}else if(PREFIX_TYPE_LIST == type){
-		//锟街斤拷锟斤拷锟斤拷
 		if(!bb_get_s16(b,&len)) {
 			goto error;
 		}
@@ -158,9 +158,7 @@ ICACHE_FLASH_ATTR static msg_extra_data_t * extra_decodeVal(byte_buffer_t *b) {
 			rst->value.bytesVal = NULL;
 		} else {
 			uint8_t *arr = (uint8_t*)os_zalloc(len);
-			//arr[0] = len;//锟斤拷锟介长锟斤拷
 			if(!bb_get_bytes(b,arr,len)) {
-				//锟斤拷锟斤拷锟斤拷失锟斤拷
 				if(arr) os_free(arr);
 				goto error;
 			}
@@ -244,18 +242,15 @@ ICACHE_FLASH_ATTR static msg_extra_data_t * extra_decodeVal(byte_buffer_t *b) {
 		rst->neddFreeBytes = true;
 
 		if(len == -1) {
-			//锟秸达拷
 			rst->value.bytesVal = NULL;
 		}else if(len == 0) {
 			char* vptr = (char*)os_zalloc(sizeof(char));
-			*vptr = "";
 			rst->value.bytesVal = vptr;
 		}else {
 
 			sint32_t ilen = len;
 
 			if(len == 127) {
-				//一锟斤拷锟街斤拷锟斤拷锟街碉拷锟斤拷蟹锟斤拷锟斤拷锟斤拷锟斤拷锟斤拷锟絁ava
 				sint16_t slen;
 				if(!bb_get_s16(b,&slen)) {
 					goto error;
@@ -263,7 +258,6 @@ ICACHE_FLASH_ATTR static msg_extra_data_t * extra_decodeVal(byte_buffer_t *b) {
 				ilen = slen;
 
 				if(slen == 32767) {
-					//锟斤拷锟斤拷锟街斤拷锟斤拷锟街碉拷锟斤拷蟹锟斤拷锟斤拷锟斤拷锟斤拷锟斤拷锟絁ava
 					if(!bb_get_s32(b,&ilen)) {
 						goto error;
 					}
@@ -279,12 +273,15 @@ ICACHE_FLASH_ATTR static msg_extra_data_t * extra_decodeVal(byte_buffer_t *b) {
 				goto error;
 			}
 
-			vptr[ilen] = '\0';//锟街凤拷锟斤拷锟斤拷锟斤拷锟斤拷志
+			vptr[ilen] = '\0';
 			rst->value.bytesVal = vptr;
 
 		}
+	}else if(PREFIX_TYPE_MAP == type){
+		msg_extra_data_t *map = extra_decode(b);
+		rst->value.bytesVal = map;//是的，确实有点坑，但是这样用完全没问题，但是要记住，根据type的类型去使用值
+		rst->neddFreeBytes = true;//记录要释放内存
 	}
-
 
 	//rst->key = k;
 	rst->type = type;
@@ -306,12 +303,10 @@ ICACHE_FLASH_ATTR static BOOL extra_encodeVal(msg_extra_data_t *extras, byte_buf
 	if (PREFIX_TYPE_LIST == type) {
 		uint8_t *ptr = extras->value.bytesVal;
 		if(extras->len <= 0) {
-			//锟斤拷锟斤拷锟斤拷
 			bb_put_u16(b, 0);
 			return false ;
 		}
 
-		//写锟斤拷锟介长锟斤拷
 		if (!bb_put_u16(b, extras->len)) {
 			return false ;
 		}
@@ -367,7 +362,7 @@ ICACHE_FLASH_ATTR static BOOL extra_encodeVal(msg_extra_data_t *extras, byte_buf
 			bb_put_s16(b,MAX_SHORT_VALUE);
 			bb_put_s32(b,len);
 		} else {
-			//锟街凤拷锟斤拷锟斤拷锟饺筹拷锟斤拷锟斤拷锟斤拷
+			//
 			return false;
 		}
 
@@ -376,14 +371,19 @@ ICACHE_FLASH_ATTR static BOOL extra_encodeVal(msg_extra_data_t *extras, byte_buf
 				return false;
 			}
 		}
+	}else if (PREFIX_TYPE_MAP == type) {
+		//请求参数是Map
+		if(!extra_encode(extras->value.bytesVal, b, NULL,EXTRA_KEY_TYPE_STRING)) {
+			//编码Map失败
+			return false;
+		}
 	}
 
 	return true;
 }
 
 /**
- * len  extra锟斤拷锟捷筹拷锟斤拷
- * 锟斤拷锟斤拷晒锟斤拷锟斤拷锟絫rue,失锟杰凤拷锟斤拷false
+ * len  extra
  */
 ICACHE_FLASH_ATTR msg_extra_data_t *extra_decode(byte_buffer_t *b){
 
@@ -419,7 +419,7 @@ ICACHE_FLASH_ATTR msg_extra_data_t *extra_decode(byte_buffer_t *b){
 		sint8_t k = 0;
 
 		if(keyType == EXTRA_KEY_TYPE_STRING) {//字符串
-			uint8_t flag;
+			sint8_t flag;
 			p = bb_readString(b,&flag);
 			if(flag != JM_SUCCESS){
 				INFO("_c_pubsubItemParseBin fail to read keyType\n");
@@ -427,7 +427,6 @@ ICACHE_FLASH_ATTR msg_extra_data_t *extra_decode(byte_buffer_t *b){
 			}
 			//v->strKey = k;
 		} else {
-			sint8_t k;
 			if(!bb_get_s8(b,&k)) {
 				INFO("ERROR:extra_decode read key error\n");
 				return NULL;
@@ -464,7 +463,7 @@ ICACHE_FLASH_ATTR msg_extra_data_t *extra_decode(byte_buffer_t *b){
  */
 ICACHE_FLASH_ATTR BOOL extra_encode(msg_extra_data_t *extras, byte_buffer_t *b, uint16_t *wl, uint8_t keyType){
 
-	*wl = 0;//默锟斤拷写锟斤拷锟捷筹拷锟饺碉拷锟斤拷0
+	if(wl) *wl = 0;//默锟斤拷写锟斤拷锟捷筹拷锟饺碉拷锟斤拷0
 
 	//锟斤拷锟街碉拷前写写位锟矫ｏ拷
 	uint16_t wpos = b->wpos;
@@ -479,7 +478,7 @@ ICACHE_FLASH_ATTR BOOL extra_encode(msg_extra_data_t *extras, byte_buffer_t *b, 
 	bb_put_u8(b,eleCnt);//写入元素个数
 
 	if(eleCnt == 0) {
-		*wl = 1;
+		if(wl) *wl = 1;
 		return true;//锟睫革拷锟斤拷锟斤拷锟斤拷
 	}
 
@@ -534,7 +533,63 @@ ICACHE_FLASH_ATTR BOOL extra_encode(msg_extra_data_t *extras, byte_buffer_t *b, 
 	}
 
 	//锟斤拷锟斤拷锟斤拷锟斤拷锟杰筹拷锟斤拷
-	*wl = wlen;
+	if(wl) *wl = wlen;
+
+	return true;
+}
+
+ICACHE_FLASH_ATTR BOOL extra_encodeRpcReqParams(msg_extra_data_t *extras, byte_buffer_t *b){
+
+	//锟斤拷锟街碉拷前写写位锟矫ｏ拷
+	uint16_t wpos = b->wpos;
+
+	//Req params列表，此处无params参数，写0
+	bb_put_u8(b,0);
+
+	int eleCnt = 0;
+	msg_extra_data_t *te = extras;
+	while(te != NULL) {
+		eleCnt++;
+		te = te->next;
+	}
+
+	bb_put_u8(b,eleCnt);//写入参数个数
+
+	if(eleCnt == 0) {
+		return true;//无参数
+	}
+
+	while(extras != NULL) {
+
+		if((PREFIX_TYPE_STRINGG == extras->type || PREFIX_TYPE_LIST == extras->type) &&
+				extras->value.bytesVal == NULL) {
+			if(!bb_put_s8(b, PREFIX_TYPE_NULL)) {
+				INFO("extra_rpcReqParams fail to write PREFIX_TYPE_NULL: %d", PREFIX_TYPE_NULL);
+				return false;
+			} else {
+				extras = extras->next;
+				continue;
+			}
+		}
+
+		if(!bb_put_s8(b, extras->type)) {
+			INFO("extra_encode write extra type fail: %d", extras->type);
+			return false;
+		}
+
+		if(!extra_encodeVal(extras,b)) {
+			return false;
+		}
+
+		extras = extras->next;
+	}
+
+	/*uint16_t wlen;
+	if(b->wpos >= wpos) {
+		wlen = b->wpos - wpos;
+	} else {
+		wlen = b->capacity- (wpos - b->wpos);
+	}*/
 
 	return true;
 }
@@ -641,7 +696,7 @@ ICACHE_FLASH_ATTR msg_extra_data_t* extra_putBool(msg_extra_data_t *e, sint8_t k
 	return eem;
 }
 
-ICACHE_FLASH_ATTR msg_extra_data_t* extra_putChars(msg_extra_data_t *e, sint8_t key, const char* val, uint16_t len){
+ICACHE_FLASH_ATTR msg_extra_data_t* extra_putChars(msg_extra_data_t *e, sint8_t key, char* val, uint16_t len){
 	msg_extra_data_t *eem = extra_put(e, key,PREFIX_TYPE_STRINGG);
 	if(eem == NULL) {
 		return NULL;
@@ -700,8 +755,8 @@ ICACHE_FLASH_ATTR jm_msg_t* msg_create_msg(sint8_t type, byte_buffer_t *payload)
 
 	//msg_setMsgId(msg, req.getReqId());
 
-	msg_setUpProtocol(msg, PROTOCOL_JSON);
-	msg_setDownProtocol(msg, PROTOCOL_JSON);
+	msg_setUpProtocol(msg, PROTOCOL_BIN);
+	msg_setDownProtocol(msg, PROTOCOL_EXTRA);
 
 	//msg_setRpcMk(msg, true);
 	//msg_setSmKeyCode(msg, mcode);
@@ -720,7 +775,7 @@ ICACHE_FLASH_ATTR jm_msg_t* msg_create_msg(sint8_t type, byte_buffer_t *payload)
 	//msg_setInsId(msg, 0);
 	//extra_put(msg->extraMap, EXTRA_KEY_INSID, 0, PREFIX_TYPE_INT);
 
-	msg_setForce2Json(msg, true);
+	msg_setForce2Json(msg, false);//响应消息不转JSON
 	msg_setFromApiGateway(msg, true);
 
 	/*ByteBuffer data = null;
@@ -791,6 +846,14 @@ ICACHE_FLASH_ATTR BOOL msg_isUpSsl(jm_msg_t *msg) {
 
 ICACHE_FLASH_ATTR void msg_setUpSsl(jm_msg_t *msg, BOOL f) {
 	msg->extrFlag = msg_set_s32(f,msg->extrFlag, EXTRA_FLAG_UP_SSL);
+}
+
+ICACHE_FLASH_ATTR BOOL msg_isUdp(jm_msg_t *msg) {
+	return msg_is_s32(msg->extrFlag, EXTRA_FLAG_UDP);
+}
+
+ICACHE_FLASH_ATTR void msg_setUdp(jm_msg_t *msg, BOOL f) {
+	msg->extrFlag = msg_set_s32(f,msg->extrFlag, EXTRA_FLAG_UDP);
 }
 
 ICACHE_FLASH_ATTR BOOL msg_isDownSsl(jm_msg_t *msg) {
@@ -977,21 +1040,25 @@ ICACHE_FLASH_ATTR  BOOL msg_setRespType(jm_msg_t *msg, sint16_t v) {
 }
 
 ICACHE_FLASH_ATTR  sint8_t msg_getUpProtocol(jm_msg_t *msg ) {
-	return msg_is_s16(msg->flag, FLAG_UP_PROTOCOL);
+	//return msg_is_s16(msg->flag, FLAG_UP_PROTOCOL);
+	return (sint8_t)((msg->flag >> FLAG_UP_PROTOCOL) & 0x03);
 }
 
 ICACHE_FLASH_ATTR  void msg_setUpProtocol(jm_msg_t *msg, sint8_t protocol) {
 	//flag |= protocol == PROTOCOL_JSON ? FLAG_UP_PROTOCOL : 0 ;
-	msg->flag = msg_set_s16(protocol == PROTOCOL_JSON, msg->flag, FLAG_UP_PROTOCOL);
+	//msg->flag = msg_set_s16(protocol == PROTOCOL_JSON, msg->flag, FLAG_UP_PROTOCOL);
+	msg->flag = msg->flag | (protocol << FLAG_UP_PROTOCOL);
 }
 
 ICACHE_FLASH_ATTR  sint8_t msg_getDownProtocol(jm_msg_t *msg) {
-	return msg_is_s16(msg->flag, FLAG_DOWN_PROTOCOL);
+	//return msg_is_s16(msg->flag, FLAG_DOWN_PROTOCOL);
+	return (sint8_t)((msg->flag >> FLAG_DOWN_PROTOCOL) & 0x03);
 }
 
 ICACHE_FLASH_ATTR  void msg_setDownProtocol(jm_msg_t *msg, sint8_t protocol) {
 	//flag |= protocol == PROTOCOL_JSON ? FLAG_DOWN_PROTOCOL : 0 ;
-	msg->flag = msg_set_s16(protocol == PROTOCOL_JSON, msg->flag, FLAG_DOWN_PROTOCOL);
+	//msg->flag = msg_set_s16(protocol == PROTOCOL_JSON, msg->flag, FLAG_DOWN_PROTOCOL);
+	msg->flag = msg->flag | (protocol << FLAG_DOWN_PROTOCOL);
 }
 
 ICACHE_FLASH_ATTR static void freeMem(byte_buffer_t *buf){
@@ -1241,7 +1308,7 @@ ICACHE_FLASH_ATTR jm_msg_t *msg_readMessage(byte_buffer_t *buf){
 	//取锟节讹拷锟斤拷锟斤拷锟斤拷锟斤拷锟街斤拷 锟斤拷锟捷筹拷锟斤拷
 	if(msg_is_s16(f,FLAG_LENGTH_INT)) {
 		//32位锟斤拷锟斤拷
-		if(!bb_get_s32(buf, &len)) {
+		if(!bb_get_u32(buf, &len)) {
 			INFO("msg_readMessage int len fail \n");
 			return NULL;
 		}
@@ -1266,10 +1333,12 @@ ICACHE_FLASH_ATTR jm_msg_t *msg_readMessage(byte_buffer_t *buf){
 		//锟斤拷锟捷筹拷锟饺诧拷锟斤拷锟斤拷锟斤拷锟斤拷锟斤拷锟斤拷锟斤拷锟斤拷值
 		//len = cache.getInt();
 		//len = cache.getInt();
-		if(!bb_get_s16(buf, &len)) {
+		uint16_t sl;
+		if(!bb_get_s16(buf, &sl)) {
 			INFO("msg_readMessage read short len fail \n");
 			return NULL;
 		}
+		len = sl;
 
 		//锟斤拷原锟斤拷锟斤拷锟捷癸拷位锟斤拷
 		//cache.position(pos);

@@ -1,7 +1,7 @@
 /*
  * jmconstants.h
  *
- *  Created on: 2023Äê4ÔÂ15ÈÕ
+ *  Created on: 2023ï¿½ï¿½4ï¿½ï¿½15ï¿½ï¿½
  *      Author: yeyulei
  */
 
@@ -11,16 +11,15 @@
 /*public static final long */
 #define DAY_IN_MILLIS (24*60*60*1000)
 
-//ÏµÍ³¹Ì¶¨µÄHTTPÂ·¾¶Ç°×º£¬Ó¦ÓÃ²»ÄÜÊ¹ÓÃ´ËÇ°×º×÷ËüÓÃ
 //public static final String  HTTP_txtContext= "_txt_";
 /*public static final String  */
-#define HTTP_binContext  "/_bin_"//×¨ÓÃÓÚweb Socket rpc
+#define HTTP_binContext  "/_bin_"//×¨ï¿½ï¿½ï¿½ï¿½web Socket rpc
 /*public static final String */
-#define HTTP_httpContext "/_http_"//×¨ÓÃÓÚHTTP RPC
+#define HTTP_httpContext "/_http_"//×¨ï¿½ï¿½ï¿½ï¿½HTTP RPC
 /*public static final String  */
-#define HTTP_fsContext "/_fs_"//×¨ÓÃÓÚÎÄ¼şÏÂÔØ
+#define HTTP_fsContext "/_fs_"//×¨ï¿½ï¿½ï¿½ï¿½ï¿½Ä¼ï¿½ï¿½ï¿½ï¿½ï¿½
 /*public static final String */
-#define HTTP_statis "/statis"//¾²Ì¬×ÊÔ´±¾µØÄ¿Â¼
+#define HTTP_statis "/statis"//ï¿½ï¿½Ì¬ï¿½ï¿½Ô´ï¿½ï¿½ï¿½ï¿½Ä¿Â¼
 
 /*public static final String */
 #define HTTP_METHOD_POST "POST"
@@ -32,20 +31,20 @@
 /*public static final String  */
 #define HTTP_ALL_CONTENT_TYPE  "*"
 
-//´¿ÎÄ±¾Êı¾İ£¬¶ÔÓ¦ÓÚspring-webµÄrestcontroller×¢½â
+//ï¿½ï¿½ï¿½Ä±ï¿½ï¿½ï¿½ï¿½İ£ï¿½ï¿½ï¿½Ó¦ï¿½ï¿½spring-webï¿½ï¿½restcontroller×¢ï¿½ï¿½
 /*public static final byte */
 #define HTTP_RESP_TYPE_RESTFULL 1
 
-//·µ»ØHTML£¬ºó¶Ë·µ»ØÎÄ¼şÊÓÍ¼Â·¾¶£¬Íø¹Ø¶ÁÈ¡ÎÄ¼ş²¢ÓëÊı¾İÕûºÏºó·µ»Ø¸ø¿Í»§¶Ë
+//ï¿½ï¿½ï¿½ï¿½HTMLï¿½ï¿½ï¿½ï¿½Ë·ï¿½ï¿½ï¿½ï¿½Ä¼ï¿½ï¿½ï¿½Í¼Â·ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ø¶ï¿½È¡ï¿½Ä¼ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ïºó·µ»Ø¸ï¿½ï¿½Í»ï¿½ï¿½ï¿½
 /*public static final byte  */
 #define HTTP_RESP_TYPE_VIEW 2
 
-//·µ»Ø½øÖÆÁ÷£¬ºó¶ËÍ¨¹ıÎÄ¼şÏµÍ³·µ»ØÎÄ¼şID£¬ÔÚÍø¹Ø¶ÁÈ¡ÎÄ¼şÁ÷·µ»Ø¸ø¿Í»§¶Ë
+//ï¿½ï¿½ï¿½Ø½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Í¨ï¿½ï¿½ï¿½Ä¼ï¿½ÏµÍ³ï¿½ï¿½ï¿½ï¿½ï¿½Ä¼ï¿½IDï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ø¶ï¿½È¡ï¿½Ä¼ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ø¸ï¿½ï¿½Í»ï¿½ï¿½ï¿½
 /*public static final byte  */
 #define HTTP_RESP_TYPE_STREAM 3
 
-//·µ»ØÔ­Ê¼ÄÚÈİ£¬Èç¹û·µ»ØÖµÊÇRespJRsoÊµÀı£¬Ôò·µ»ØRespJRso.data£¬·ñÔòÖ±½Ó·µ»Øresp
-//ÀıÈçÈı·½Ö§¸¶Òì²½Í¨ÖªĞèÒª·µ»Ø"SUCCESS"×Ö·û´®£¬
+//ï¿½ï¿½ï¿½ï¿½Ô­Ê¼ï¿½ï¿½ï¿½İ£ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Öµï¿½ï¿½RespJRsoÊµï¿½ï¿½ï¿½ï¿½ï¿½ò·µ»ï¿½RespJRso.dataï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ö±ï¿½Ó·ï¿½ï¿½ï¿½resp
+//ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ö§ï¿½ï¿½ï¿½ì²½Í¨Öªï¿½ï¿½Òªï¿½ï¿½ï¿½ï¿½"SUCCESS"ï¿½Ö·ï¿½ï¿½ï¿½ï¿½ï¿½
 /*public static final byte */
 #define HTTP_RESP_TYPE_ORIGIN 4
 
@@ -90,29 +89,21 @@ static {
 /*public static final byte */
 #define LIMIT_TYPE_SS  2
 
-//·şÎñ·½·¨¿Í»§¶ËÕËºÅÀàĞÍ
-
-//·şÎñ·½·¨Ö»¹©µÇÂ½ÓÃ»§µ÷ÓÃ£¬»ùÓÚµÇÂ½ÕËºÅ×öÈ¨ÀûÏŞÑéÖ¤
 /*public static final byte */
 #define FOR_TYPE_USER  1
 
-//·şÎñ·½·¨Ö»¹©ÔËĞĞÊµÀıÓÃ»§µ÷ÓÃ£¬µäĞÍµÄÈçÔ¶³ÌÀà¼ÓÔØ·½·¨
 /*public static final byte */
 #define FOR_TYPE_SYS  2
 
-//È«²¿¿ÉÒÔµ÷ÓÃ
 /*public static final byte */
 #define FOR_TYPE_ALL  3
 
-//×ÔÓÉµ÷ÓÃ
 /*public static final byte */
 #define LICENSE_TYPE_FREE  0
 
-//Éè¶¨cliengtId¿ÉÒÔµ÷ÓÃ
 /*public static final byte */
 #define LICENSE_TYPE_CLIENT  1
 
-//Ö»ÓĞ×Ô¼ºÄÜµ÷ÓÃ
 /*public static final byte */
 #define LICENSE_TYPE_PRIVATE  2
 
@@ -163,7 +154,6 @@ static {
 /*public static final String */
 #define CFG_ROOT "/jmicro"
 
-//Ö÷´ÓÄ£Ê½±êÇ©
 /*public static final String */
 #define MASTER_SLAVE_TAG  "masterSlaveTag"
 
@@ -172,7 +162,6 @@ static {
 /*public static final String */
 #define INSTANCE_DATA_DIR  "instanceDataDir"
 
-//ÔÚCFG_ROOTÏÂÄ¿Â¼Ãû³ÆÇ°×ºÎªJMICROÏµÍ³±£Áô£¬Ó¦ÓÃ²»¿ÉÊ¹ÓÃ
 /*public static final String */
 #define DEFAULT_PREFIX "JMICRO"
 
@@ -343,14 +332,10 @@ static {
 /*public static final String */
 #define TRANSPORT_NETTY_HTTP  "nettyhttp"
 
-//ÈÛ¶ÏÆ÷×Ô¶¯¼ì²âÄ¿±ê·şÎñÊÇ·ñ¿ÉÓÃ³¢ÊÔÉÏÏÂÎÄ£¬·şÎñ¹ÜÀíÆ÷¸ù¾İ´ËÖµÅĞ¶ÏÊÇ·ñ¿ÉÒÔ·µ»Ø±»ÈÛ¶Ï·şÎñĞÅÏ¢
-//´ËÖµÓ¦¸ÃÔÚÕû¸öRPCÁ´Â·ÖĞÍ¸Ã÷´«µİ
 /*public static final String */
 #define BREAKER_TEST_CONTEXT  "breakerTestContext"
 
 //public static final String REF_ANNO = "referenceAnno";
-//µ÷ÓÃ·şÎñÊµÀıÇ°£¬Ö¸¶¨Òªµ÷ÓÃµÄ·şÎñÊµÀı£¬²»×ö·şÎñ¸ºÔØÔØ¾ùºâ¼°·şÎñÂ·ÓÉ,ÔÚRpcClientRequestHandler»ñÈ¡¶ÔÓ¦µÄServiceItemºó
-//Ó¦¸ÃÉ¾³ı´ËÖµ
 /*public static final String */
 #define DIRECT_SERVICE_ITEM  "directServiceItem"
 
@@ -385,47 +370,47 @@ static {
 /*=====================Message Begin=======================*/
 
 /*public static final byte */
-#define MSG_TYPE_REQ_JRPC  0x01 //ÆÕÍ¨RPCµ÷ÓÃÇëÇó£¬·¢ËÍ¶Ë·¢IRequest£¬·µ»Ø¶Ë·µ»ØIResponse
+#define MSG_TYPE_REQ_JRPC  0x01
 /*public static final byte */
-#define MSG_TYPE_RRESP_JRPC  0x02//·µ»Ø¶Ë·µ»ØIResponse
+#define MSG_TYPE_RRESP_JRPC  0x02
 
 /*public static final byte */
-#define MSG_TYPE_PUBSUB  0x03 //¶©ÔÄÏûÏ¢
+#define MSG_TYPE_PUBSUB  0x03
 /*public static final byte */
-#define MSG_TYPE_PUBSUB_RESP  0x04//¶©ÔÄÏûÏ¢ÏìÓ¦
+#define MSG_TYPE_PUBSUB_RESP  0x04
 
 /*public static final byte */
-#define MSG_TYPE_ASYNC_REQ  0x05 //Òì²½ÇëÇó£¬²»ĞèÒªµÈ´ıÏìÓ¦·µ»Ø
+#define MSG_TYPE_ASYNC_REQ  0x05
 /*public static final byte */
-#define MSG_TYPE_ASYNC_RESP  0x06 //Òì²½ÏìÓ¦£¬Í¨¹ı»Øµ÷ÓÃ·µ»Ø
+#define MSG_TYPE_ASYNC_RESP  0x06
 
 /*public static final byte */
-#define MSG_TYPE_API_CLASS_REQ  ((sint8_t)0x07) //APIÍø¹ØÇëÇó
+#define MSG_TYPE_API_CLASS_REQ  ((sint8_t)0x07)
 /*public static final byte */
-#define MSG_TYPE_API_CLASS_RESP ((sint8_t)0x08)//APIÍø¹ØÇëÇóÏìÓ¦
+#define MSG_TYPE_API_CLASS_RESP ((sint8_t)0x08)
 
 /*public static final byte */
-#define MSG_TYPE_EXSECRET_REQ ((sint8_t)0x09)//APIÍø¹ØÇëÇó
+#define MSG_TYPE_EXSECRET_REQ ((sint8_t)0x09)
 /*public static final byte */
-#define MSG_TYPE_EXSECRET_RESP ((sint8_t)0x0A)//APIÍø¹ØÇëÇóÏìÓ¦
+#define MSG_TYPE_EXSECRET_RESP ((sint8_t)0x0A)
 
 /*public static final byte */
-#define MSG_TYPE_ID_REQ ((sint8_t)0x0B) //IdÇëÇó
+#define MSG_TYPE_ID_REQ ((sint8_t)0x0B)
 /*public static final byte */
-#define MSG_TYPE_ID_RESP ((sint8_t)0x0C)//IdÇëÇóÏìÓ¦
+#define MSG_TYPE_ID_RESP ((sint8_t)0x0C)
 
 /*public static final byte */
-#define MSG_TYPE_HEARBEAT_REQ ((sint8_t)0x0D)//ĞÄÌøÇëÇó
+#define MSG_TYPE_HEARBEAT_REQ ((sint8_t)0x0D)
 /*public static final byte */
-#define MSG_TYPE_HEARBEAT_RESP ((sint8_t)0x0E)//ĞÄÌøÏìÓ¦
+#define MSG_TYPE_HEARBEAT_RESP ((sint8_t)0x0E)
 
 /*public static final byte */
-#define MSG_TYPE_SYSTEM_REQ_JRPC  0x0F) // ÌØÊâRPC ½Ó¿Ú£¬ÈçID RPC½Ó¿ÚÖĞ
+#define MSG_TYPE_SYSTEM_REQ_JRPC  0x0F)
 /*public static final byte */
 #define MSG_TYPE_SPECAIL_RRESP_JRPC  0x10//16
 
 /*public static final byte */
-#define MSG_TYPE_OBJECT_STORAGE  0x11 //17 ¶ÔÏó´æ´¢ÏûÏ¢
+#define MSG_TYPE_OBJECT_STORAGE  0x11
 /*public static final byte */
 #define MSG_TYPE_OBJECT_STORAGE_RESP  0x12//18
 
@@ -433,52 +418,45 @@ static {
 
 //time unit constant
 /*public static final */
-#define String TIME_DAY  "D" //Ìì
+#define String TIME_DAY  "D" //ï¿½ï¿½
 /*public static final String */
 #define TIME_HOUR  "H" //Ê±
 /*public static final String */
-#define TIME_MINUTES  "M" //·Ö
+#define TIME_MINUTES  "M" //ï¿½ï¿½
 /*public static final String */
-#define TIME_SECONDS  "S" //Ãë
+#define TIME_SECONDS  "S" //ï¿½ï¿½
 /*public static final String */
-#define TIME_MILLISECONDS  "MS" //ºÁÃë
+#define TIME_MILLISECONDS  "MS" //ï¿½ï¿½ï¿½ï¿½
 /*public static final String */
-#define TIME_MICROSECONDS  "MC" //Î¢Ãë
+#define TIME_MICROSECONDS  "MC" //Î¢ï¿½ï¿½
 /*public static final String */
-#define TIME_NANOSECONDS  "N" //ÄÉÃë
+#define TIME_NANOSECONDS  "N" //ï¿½ï¿½ï¿½ï¿½
 
 
 /*==============================================================*/
 
-//×Ö¶ÎÀàĞÍ£¬0£º±íÊ¾±àÂë£¬1£º±íÊ¾ÀàÃû
+//ï¿½Ö¶ï¿½ï¿½ï¿½ï¿½Í£ï¿½0ï¿½ï¿½ï¿½ï¿½Ê¾ï¿½ï¿½ï¿½ë£¬1ï¿½ï¿½ï¿½ï¿½Ê¾ï¿½ï¿½ï¿½ï¿½
 /*public static final byte */
 #define TYPE_VAL  0X40
 
-//ÁĞ±í´óĞ¡£¬0£º±íÊ¾µÈÓÚ0£¬1£º´óÓÚ0
 /*public static final byte */
 #define SIZE_NOT_ZERO  0X20
 
-//Ç°ÖÃÔªËØÀàĞÍ1£ºÊÇ£¬0£º·ñ
 /*public static final byte */
 #define HEADER_ELETMENT  0X10
 
-//ÄÜ´Ó·ºĞÍÖĞÄÜ»ñÈ¡µ½×ã¹»µÄÁĞ±íÔªËØÀàĞÍĞÅÏ¢ 0:²»ÄÜ´Ó·ºĞÍÖĞÄÜ»ñÈ¡µ½×ã¹»µÄÁĞ±íÔªËØÀàĞÍĞÅÏ¢£¬1£º¿ÉÒÔ´Ó·ºĞÍÖĞ»ñÈ¡µ½×ã¹»µÄÁĞ±íÔªËØÀàĞÍĞÅÏ¢
 /*public static final byte */
 #define GENERICTYPEFINAL  0X08
 
-//¶ÎÀàĞÍ£¬0£º±íÊ¾±àÂë£¬1£º±íÊ¾ÀàÃû
 /*public static final byte */
 #define ELEMENT_TYPE_CODE  0X04
 
-//×Ö¶ÎÀàĞÍÊÇ·ñÊÇ¿ÕÖµ 0£º±íÊ¾¿ÕÖµ£¬1£º±íÊ¾·Ç¿ÕÖµ
 /*public static final byte */
 #define EXT0  0X02
 
-//×Ö¶ÎÀàĞÍÊÇ·ñÊÇ¿ÕÖµ 0£º±íÊ¾¿ÕÖµ£¬1£º±íÊ¾·Ç¿ÕÖµ
 /*public static final byte */
 #define EXT1 0X80
 
-//×Ö¶ÎÀàĞÍÊÇ·ñÊÇ¿ÕÖµ 0£º±íÊ¾¿ÕÖµ£¬1£º±íÊ¾·Ç¿ÕÖµ
 /*public static final byte */
 #define NULL_VAL 0X01
 
@@ -487,27 +465,21 @@ static {
 /*public static final String */
 #define CACHE_DIR_PREFIX  "CP:"
 
-//»º´æ²ßÂÔ
 /*public static final byte */
 #define CACHE_TYPE_NO  0
 
-//·şÎñ·½·¨¼¶»º´æ
 /*public static final byte */
 #define CACHE_TYPE_MCODE  1
 
-//·şÎñ·½·¨ + ÕËºÅ
 /*public static final byte */
 #define CACHE_TYPE_ACCOUNT  2
 
-//ÏûÏ¢payload¼ÆËãhash×÷Îªkey
 /*public static final byte */
 #define CACHE_TYPE_PAYLOAD  3
 
-//ÏûÏ¢payload¼ÆËãhash×÷Îªkey + ÕËºÅ
 /*public static final byte */
 #define CACHE_TYPE_PAYLOAD_AND_ACT  4
 
-//²Ù×÷ÀàĞÍ£¬¾ßÌåÒâÒåÓÉÊµÏÖ·½¼°Ê¹ÓÃ·½¼ÓÒÔÏ¸»¯
 /*public static final byte */
 #define OP_TYPE_ADD  1
 /*public static final byte */
@@ -517,13 +489,13 @@ static {
 /*public static final byte */
 #define OP_TYPE_QUERY  4
 /*public static final byte */
-#define OP_TYPE_START  5//¿ªÊ¼
+#define OP_TYPE_START  5//ï¿½ï¿½Ê¼
 /*public static final byte */
-#define OP_TYPE_END  6//½áÊø
+#define OP_TYPE_END  6//ï¿½ï¿½ï¿½ï¿½
 /*public static final byte */
-#define OP_TYPE_PAUSE  7//ÔİÍ£
+#define OP_TYPE_PAUSE  7//ï¿½ï¿½Í£
 /*public static final byte */
-#define OP_TYPE_RESUME  8//»½ĞÑ
+#define OP_TYPE_RESUME  8//ï¿½ï¿½ï¿½ï¿½
 /*public static final byte */
 #define OP_TYPE_STATUS  9
 

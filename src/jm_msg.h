@@ -7,12 +7,15 @@
 
 #define HEADER_LEN  13 // 2(flag)+2(data len with short)+1(type)
 
-#define EXT_HEADER_LEN  2 //¸½¼ÓÊý¾ÝÍ·²¿³¤¶È
+#define EXT_HEADER_LEN  2
+
+#define TOPIC_P2P "/__act/dev/p2pctrl"
 
 //public static final int SEC_LEN  128
 
 #define  PROTOCOL_BIN  0
 #define  PROTOCOL_JSON  1
+#define  PROTOCOL_EXTRA  2
 
 #define  PRIORITY_0  0
 #define  PRIORITY_1  1
@@ -31,24 +34,19 @@
 
 //public static final byte MSG_VERSION  (byte)1
 
-//³¤¶È×Ö¶ÎÀàÐÍ£¬1±íÊ¾ÕûÊý£¬0±íÊ¾¶ÌÕûÊý
 #define FLAG_LENGTH_INT  (1 << 0)
 
-#define FLAG_UP_PROTOCOL  (1<<1)
-#define FLAG_DOWN_PROTOCOL  (1 << 2)
+#define FLAG_UP_PROTOCOL  1
+#define FLAG_DOWN_PROTOCOL  8
 
-//¿É¼à¿ØÏûÏ¢
 #define FLAG_MONITORABLE  (1 << 3)
 
-//°üº¬ExtraÊý¾Ý
 #define FLAG_EXTRA  (1 << 4)
 
-//À´×ÔÍâÍøÏûÏ¢£¬ÓÉÍø¹Ø×ª·¢µ½ÄÚÍø
 #define FLAG_OUT_MESSAGE  (1 << 5)
 
 #define FLAG_ERROR  (1 << 6)
 
-//ÐèÒªÏìÓ¦µÄÇëÇó  or down message is error
 #define FLAG_FORCE_RESP_JSON  (1 << 7)
 
 #define FLAG_RESP_TYPE  11
@@ -57,39 +55,33 @@
 
 /****************  extra constants flag   *********************/
 
-//µ÷ÊÔÄ£Ê½
 #define EXTRA_FLAG_DEBUG_MODE  (1 << 0)
 
 #define EXTRA_FLAG_PRIORITY  1
 
-//DUMPÉÏÐÐÊý¾Ý
 #define EXTRA_FLAG_DUMP_UP  (1 << 3)
 
-//DUMPÏÂÐÐÊý¾Ý
 #define EXTRA_FLAG_DUMP_DOWN  (1 << 4)
 
-//¼ÓÃÜ²ÎÊý 0£ºÃ»¼ÓÃÜ£¬1£º¼ÓÃÜ
 #define EXTRA_FLAG_UP_SSL  (1 << 5)
 
-//ÊÇ·ñÇ©Ãû
 #define EXTRA_FLAG_DOWN_SSL  (1 << 6)
 
 #define EXTRA_FLAG_IS_SEC  (1 <<8)
 
-//ÊÇ·ñÇ©Ãû£º 0:ÎÞÇ©Ãû£» 1£ºÓÐÇ©Ãû
 #define EXTRA_FLAG_IS_SIGN  (1 << 9)
 
-//¼ÓÃÜ·½Ê½£º 0:¶Ô³Æ¼ÓÃÜ£¬1£ºRSA ·Ç¶Ô³Æ¼ÓÃÜ
 #define EXTRA_FLAG_ENC_TYPE  (1 << 10)
 
 #define EXTRA_FLAG_RPC_MCODE  (1 << 11)
 
 #define EXTRA_FLAG_SECTET_VERSION  (1 << 12)
 
-//ÊÇ·ñ°üº¬ÊµÀýID
 #define EXTRA_FLAG_INS_ID  (1 << 13)
 
 #define EXTRA_FLAG_FROM_APIGATEWAY  (1 << 14)
+
+#define EXTRA_FLAG_UDP  (1 << 15)
 
 #define EXTRA_KEY_LINKID  -127
 #define EXTRA_KEY_INSID  -126
@@ -109,10 +101,17 @@
 #define EXTRA_KEY_LOGIN_SYS  -116
 #define EXTRA_KEY_ARG_HASH -115
 
-#define EXTRA_KEY_PS_OP_CODE -114//²Ù×÷Âë
-#define EXTRA_KEY_PS_ARGS -113 //²ÎÊý
+#define EXTRA_KEY_PS_OP_CODE -114//
+#define EXTRA_KEY_PS_ARGS -113 //
 
-//·þÎñÆ÷·µ»ØÈ«¾ÖÎ¨Ò»±êÊ¶ID
+#define EXTRA_KEY_UDP_PORT -111//UDPè¿œç¨‹ç«¯å£
+#define EXTRA_KEY_UDP_HOST -110//UDPè¿œç¨‹ä¸»æœºåœ°å€
+#define EXTRA_KEY_UDP_ACK -109//UDPæ˜¯å¦éœ€è¦åº”ç­”ï¼Œtrueéœ€è¦åº”ç­”ï¼Œfalseä¸éœ€è¦åº”ç­”
+
+#define EXTRA_SKEY_UDP_PORT "-111"//UDPè¿œç¨‹ç«¯å£
+#define EXTRA_SKEY_UDP_HOST "-110"//UDPè¿œç¨‹ä¸»æœºåœ°å€
+#define EXTRA_SKEY_UDP_ACK "-109"//UDPæ˜¯å¦éœ€è¦åº”ç­”ï¼Œtrueéœ€è¦åº”ç­”ï¼Œfalseä¸éœ€è¦åº”ç­”
+
 #define EXTRA_KEY_SMSG_ID -112
 
 //rpc method name
@@ -125,35 +124,27 @@
 #define EXTRA_KEY_CLIENT_ID  122
 #define EXTRA_KEY_EXT4  121
 #define EXTRA_KEY_EXT5  120
-#define MSG_TYPE_PINGPONG  0//Ä¬ÈÏÇëÇóÏìÓ¦Ä£Ê½
+#define MSG_TYPE_PINGPONG  0
 
-#define MSG_TYPE_NO_RESP  1//µ¥ÏòÄ£Ê½
+#define MSG_TYPE_NO_RESP  1
 
-#define MSG_TYPE_MANY_RESP  2//¶à¸öÏìÓ¦Ä£Ê½£¬ÈçÏûÏ¢¶©ÔÄ
+#define MSG_TYPE_MANY_RESP  2
 
 
 #define  PREFIX_TYPE_ID -128
 
 #define  GET_PREFIX(n) (PREFIX_TYPE_ID+n)
 
-//¿ÕÖµ±àÂë
 #define  PREFIX_TYPE_NULL GET_PREFIX(0) //-128
 
 //FINAL
 #define  PREFIX_TYPE_FINAL GET_PREFIX(1) //-127
 
-//ÀàÐÍ±àÂëÐ´Èë±àÂëÖÐ
 #define  PREFIX_TYPE_SHORT (GET_PREFIX(2))//-126
-//È«ÏÞ¶¨ÀàÃû×÷ÎªÇ°×º´®Ð´Èë±àÂëÖÐ
 #define  PREFIX_TYPE_STRING (GET_PREFIX(3))//-125
 
-//ÒÔÏÂ¶Ô¸ßÊ¹ÓÃÆµÂÊ·ÇfinalÀà×ö¿ì½Ý±àÂë
-
-//ÁÐ±íÀàÐÍ±àÂë£¬Ö¸Ê¾½ÓÏÂÒµ¶ÁÈ¡Ò»¸öÁÐ±í£¬È¡ÁÐ±í±àÂëÆ÷Ö±½Ó½âÂë
 #define  PREFIX_TYPE_LIST GET_PREFIX(4)//-124
-//¼¯ºÏÀàÐÍ±àÂë£¬Ö¸Ê¾½ÓÏÂÀ´¶ÁÈ¡Ò»¸ö¼¯ºÏ£¬È¡SET±àÂëÆ÷Ö±½Ó½âÂë
 #define  PREFIX_TYPE_SET GET_PREFIX(5)//-123
-//MapÀàÐÍ±àÂë£¬Ö¸Ê¾½ÓÏÂÀ´¶ÁÈ¡Ò»¸öMap£¬È¡Map±àÂëÆ÷Ö±½Ó½âÂë
 #define  PREFIX_TYPE_MAP GET_PREFIX(6)//-122
 
 #define  PREFIX_TYPE_BYTE GET_PREFIX(7)//-121
@@ -171,12 +162,6 @@
 #define  PREFIX_TYPE_RESPONSE GET_PREFIX(19)//-109
 #define  PREFIX_TYPE_PROXY GET_PREFIX(20)//-108
 
-
-#ifdef __cplusplus
-extern "C"
-{
-#endif
-
 typedef union _msg_extra_data_val {
 	char* bytesVal;
 	char charVal;
@@ -185,55 +170,30 @@ typedef union _msg_extra_data_val {
 	sint32_t s32Val;
 	sint64_t s64Val;
 	BOOL boolVal;
-
-	/*uint8_t u8Val;
-	uint16_t u16Val;
-	uint32_t u32Val;
-	uint64_t u64Val;*/
 } msg_extra_data_val;
 
 typedef struct _msg_extra_data {
 	sint8_t key;
 	char* strKey;
-	//µ±valueÊÇÊý×é»ò×Ö·û´®Ê±£¬ÊÇ·ñÐèÒªfreeÄÚ´æ£¬¶ÔÓÚÓÃallocÉêÇëµÄÄÚ´æ£¬
-	//Ò»°ãÒªÉèÖÃÎªtrue,ÒÔ×Ô¶¯ÊÍ·ÅÄÚ´æ£¬Èç¹ûÉèÖÃÎªfalse,ÔòÐèÒªÊ¹ÓÃÕß×Ô¼ºÊÍ·Å
 	BOOL neddFreeBytes;
 	msg_extra_data_val value;
-	sint8_t type;//ÖµµÄÀàÐÍ
+	sint8_t type;
 	uint16_t len;
 	struct _msg_extra_data *next;
 } msg_extra_data_t;
 
-
-typedef struct _jm_req {
-
-} jm_req_t;
-
-
 /**
  * Messge format:
- *
- * +++ 2 bytes £¨flag£© +++  2 or 4 bytes £¨len£© +++ 1 byte £¨type£© +++ 4 bytes £¨extra flag£© +++ 2 bytes extra data len +++ extra data +++ payload data +++
-
- * a. 2 bytes flag: ¹Ì¶¨2×Ö½Ú²»±ä
- * b. 2 or 4 bytes len ¸ù¾ÝMessage.FLAG_LENGTH_INTÖµÈ·¶¨ÊÇ2×Ö½Ú»¹ÊÇ4×Ö½Ú£¬1±íÊ¾4×Ö½Ú£¬0±íÊ¾Á½×Ö½Ú£¬lenµÄÖµµÈÓÚ 4£¨Èç¹û´æÔÚ£¬extra flag³¤¶È£©+
- * 2£¨Èç¹û´æÔÚ£¬extra³¤¶È£© + extra data³¤¶È£¨Èç¹û´æÔÚ£© + data³¤¶È
-
- 	ÈçFLAG_EXTRA=1,Ôò°üº¬ÒÔÏÂÐÅÏ¢
- * c. 4 bytes £¨extra flag£©
- * d. 2 bytes extra data len  ±íÊ¾¸½¼ÓÊý¾Ý³¤¶È
- * e. extra data
 
  */
 typedef struct _jm_msg {
 	//0B00111000 5---3
 	//public static final short FLAG_LEVEL = 0X38;
 
-	//ÊÇ·ñÆôÓÃ·þÎñ¼¶log
+	//ï¿½Ç·ï¿½ï¿½ï¿½ï¿½Ã·ï¿½ï¿½ï¿½log
 	//public static final short FLAG_LOGGABLE = 1 << 3;
 	uint64_t startTime;
 
-	//´ËÏûÏ¢ËùÕ¼×Ö½ÚÊý£¬ÓÃÓÚ¼ÇÂ¼Á÷Á¿
 	//uint32_t len = -1;
 
 	//1 byte length
@@ -254,7 +214,7 @@ typedef struct _jm_msg {
 	 * 8
 	 * 9
 	 * 10
-	 * 11£¬12   Resp type  MSG_TYPE_PINGPONG£¬MSG_TYPE_NO_RESP£¬MSG_TYPE_MANY_RESP
+	 * 11ï¿½ï¿½12   Resp type  MSG_TYPE_PINGPONGï¿½ï¿½MSG_TYPE_NO_RESPï¿½ï¿½MSG_TYPE_MANY_RESP
 	 * 13 14 15 LLL      Log level
 	 * @return
 	 */
@@ -279,16 +239,18 @@ typedef struct _jm_msg {
 	 * 1,2      PP:       Message priority   EXTRA_FLAG_PRIORITY
 	 * 3        up:       dump up stream data
 	 * 4        do:       dump down stream data
-	 * 5 	    US        ÉÏÐÐSSL  0:no encrypt 1:encrypt
-	 * 6        DS        ÏÂÐÐSSL  0:no encrypt 1:encrypt
+	 * 5 	    US        ï¿½ï¿½ï¿½ï¿½SSL  0:no encrypt 1:encrypt
+	 * 6        DS        ï¿½ï¿½ï¿½ï¿½SSL  0:no encrypt 1:encrypt
 	 * 7
-	 * 8        MK        RPC·½·¨±àÂë
-	 * 9        SV        ¶Ô³ÆÃÜÔ¿°æ±¾
-	 * 10       SE        ÃÜÂë
-	 * 11       SI        ÊÇ·ñÓÐÇ©ÃûÖµ 0£ºÎÞ£¬1£ºÓÐ
-	 * 12       ENT       encrypt type 0:¶Ô³Æ¼ÓÃÜ£¬1£ºRSA ·Ç¶Ô³Æ¼ÓÃÜ
-	 * 13       ERROR     0:Õý³£°ü£¬ 1£º´íÎóÏìÓ¦°ü
-	          E  ENT SI  SE  WE MK SV  DS   US   DO   UP  P    P   dm
+	 * 8        MK        RPCï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
+	 * 9        SV        ï¿½Ô³ï¿½ï¿½ï¿½Ô¿ï¿½æ±¾
+	 * 10       SE        ï¿½ï¿½ï¿½ï¿½
+	 * 11       SI        ï¿½Ç·ï¿½ï¿½ï¿½Ç©ï¿½ï¿½Öµ 0ï¿½ï¿½ï¿½Þ£ï¿½1ï¿½ï¿½ï¿½ï¿½
+	 * 12       ENT       encrypt type 0:ï¿½Ô³Æ¼ï¿½ï¿½Ü£ï¿½1ï¿½ï¿½RSA ï¿½Ç¶Ô³Æ¼ï¿½ï¿½ï¿½
+	 * 13       ERROR     0:ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ 1ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ó¦ï¿½ï¿½
+	 * 14       GW        API gateway forward message   EXTRA_FLAG_FROM_APIGATEWAY
+	 * 15       UDP       é€šè¿‡UDPä¼ è¾“æŠ¥æ–‡ï¼Œ1: UDP, 0:TCP
+	 UDP  GW  E  ENT SI  SE  WE MK SV  DS   US   DO   UP  P    P   dm
 	 |    |   |   |  |   |   |  |  |   |    |    |    |   |    |   |
      15  14  13  12  11  10  9  8  7   6    5    4    3   2    1   0
 
@@ -300,33 +262,34 @@ typedef struct _jm_msg {
 	 */
 	sint32_t extrFlag ;
 
-	//¸½¼ÓÊý¾Ó
 	//uint8_t *extra;
 
 	//jm_req_t *req;
 
-	//ÓÃÓÚ»º´æ×éÁ´½Ó£¬ÒµÎñÖÐÎÞÐèÊ¹ÓÃ£¬Õý³£Ê¹ÓÃÖÐ£¬´ËÖµÓ¦ÎªNULL
 	struct _jm_msg *cacheNext;
 } jm_msg_t;
 
+
+#ifdef __cplusplus
+extern "C" {
+#endif
 /***************************************EXTRA DATA OPERATION BEGIN***************************************/
 /**
- * len  extraÊý¾Ý³¤¶È
- * ±àÂë³É¹¦·µ»Øtrue,Ê§°Ü·µ»Øfalse
  */
 ICACHE_FLASH_ATTR msg_extra_data_t *extra_decode(byte_buffer_t *b);
 
 /**
- *wl´æ´¢±àÂëºóbyteµÄ×Ö½ÚÊý
- *±àÂë³É¹¦·µ»Øtrue,Ê§°Ü·µ»Øfalse
  */
 ICACHE_FLASH_ATTR BOOL extra_encode(msg_extra_data_t *extras, byte_buffer_t *b, uint16_t *wl,uint8_t keyType);
+ICACHE_FLASH_ATTR BOOL extra_encodeRpcReqParams(msg_extra_data_t *extras, byte_buffer_t *b);
 
 ICACHE_FLASH_ATTR void extra_release(msg_extra_data_t *extra);
 ICACHE_FLASH_ATTR msg_extra_data_t* extra_create();
 
-//·µ»ØÍ·½Úµã
 ICACHE_FLASH_ATTR msg_extra_data_t * extra_pullAll(msg_extra_data_t *from, msg_extra_data_t *to);
+
+ICACHE_FLASH_ATTR msg_extra_data_t* extra_strKeyGet(msg_extra_data_t *header, char *key);
+ICACHE_FLASH_ATTR msg_extra_data_t* extra_strKeyPut(msg_extra_data_t *header, char *strKey, sint8_t type);
 
 ICACHE_FLASH_ATTR msg_extra_data_t* extra_get(msg_extra_data_t *header, sint8_t key);
 ICACHE_FLASH_ATTR  sint16_t extra_getS16(msg_extra_data_t *e, sint8_t key);
@@ -345,12 +308,16 @@ ICACHE_FLASH_ATTR msg_extra_data_t* extra_putInt(msg_extra_data_t *e, sint8_t ke
 ICACHE_FLASH_ATTR msg_extra_data_t* extra_putLong(msg_extra_data_t *e, sint8_t key, sint64_t val);
 ICACHE_FLASH_ATTR msg_extra_data_t* extra_putChar(msg_extra_data_t *e, sint8_t key, char val);
 ICACHE_FLASH_ATTR msg_extra_data_t* extra_putBool(msg_extra_data_t *e, sint8_t key, BOOL val);
-ICACHE_FLASH_ATTR msg_extra_data_t* extra_putChars(msg_extra_data_t *e, sint8_t key, const char* val, uint16_t len);
+ICACHE_FLASH_ATTR msg_extra_data_t* extra_putChars(msg_extra_data_t *e, sint8_t key, char* val, uint16_t len);
 
 /**************************************EXTRA DATA OPERATION END**********************************/
 
 ICACHE_FLASH_ATTR BOOL msg_isUpSsl(jm_msg_t *msg);
 ICACHE_FLASH_ATTR void msg_setUpSsl(jm_msg_t *msg, BOOL f);
+
+ICACHE_FLASH_ATTR BOOL msg_isUdp(jm_msg_t *msg);
+ICACHE_FLASH_ATTR void msg_setUdp(jm_msg_t *msg, BOOL f);
+
 ICACHE_FLASH_ATTR BOOL msg_isDownSsl(jm_msg_t *msg);
 ICACHE_FLASH_ATTR  void msg_setDownSsl(jm_msg_t *msg, BOOL f);
 ICACHE_FLASH_ATTR  BOOL msg_isFromApiGateway(jm_msg_t *msg);
@@ -385,7 +352,6 @@ ICACHE_FLASH_ATTR  BOOL msg_isPubsubMessage(jm_msg_t *msg);
 ICACHE_FLASH_ATTR  BOOL msg_isPingPong(jm_msg_t *msg);
 
 /**
- * @param f true ±íÊ¾ÕûÊý£¬false±íÊ¾¶ÌÕûÊý
  */
 ICACHE_FLASH_ATTR  void msg_setLengthType(jm_msg_t *msg, BOOL f);
 ICACHE_FLASH_ATTR BOOL msg_isLengthInt(jm_msg_t *msg);
@@ -409,23 +375,6 @@ ICACHE_FLASH_ATTR jm_msg_t* msg_create_ps_msg(byte_buffer_t *payload);
 ICACHE_FLASH_ATTR jm_msg_t* msg_create_msg(sint8_t tyep, byte_buffer_t *payload);
 ICACHE_FLASH_ATTR void msg_release(jm_msg_t *msg);
 
-/*
-ICACHE_FLASH_ATTR  sint16_t msg_getS16Extra(jm_msg_t *msg, sint8_t key);
-ICACHE_FLASH_ATTR  sint8_t msg_getS8Extra(jm_msg_t *msg, sint8_t key);
-ICACHE_FLASH_ATTR  sint64_t msg_getS64Extra(jm_msg_t *msg, sint8_t key);
-ICACHE_FLASH_ATTR  sint32_t msg_getS32Extra(jm_msg_t *msg, sint8_t key);
-ICACHE_FLASH_ATTR  char* msg_getCharsExtra(jm_msg_t *msg, sint8_t key);
-//ICACHE_FLASH_ATTR void msg_putExtra(jm_msg_t *msg, sint8_t key, void *val, sint8_t type);
-
-//ICACHE_FLASH_ATTR msg_extra_data_t* msg_getExtra(jm_msg_t *msg, sint8_t key);
-ICACHE_FLASH_ATTR BOOL msg_putByteExtra(jm_msg_t *msg, sint8_t key, sint8_t val);
-ICACHE_FLASH_ATTR BOOL msg_putShortExtra(jm_msg_t *msg, sint8_t key, sint16_t val);
-ICACHE_FLASH_ATTR BOOL msg_putIntExtra(jm_msg_t *msg, sint8_t key, sint32_t val);
-ICACHE_FLASH_ATTR BOOL msg_putLongExtra(jm_msg_t *msg, sint8_t key, sint64_t val);
-ICACHE_FLASH_ATTR BOOL msg_putCharExtra(jm_msg_t *msg, sint8_t key, char val);
-ICACHE_FLASH_ATTR BOOL msg_putBoolExtra(jm_msg_t *msg, sint8_t key, BOOL val);
-ICACHE_FLASH_ATTR BOOL msg_putCharsExtra(jm_msg_t *msg, sint8_t key, const char* val, uint16_t len);
-*/
 #ifdef __cplusplus
 }
 #endif

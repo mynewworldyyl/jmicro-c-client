@@ -37,6 +37,10 @@
 #define NET_DATA_BIG_END true //锟斤拷锟斤拷锟斤拷锟斤拷小锟斤拷
 #endif
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 typedef enum _client_send_msg_result{
 	JM_SUCCESS=-100,
 	SOCKET_SENDER_NULL=-99,//底层SOCKET没建立
@@ -48,7 +52,7 @@ typedef enum _client_send_msg_result{
 	SEND_DATA_ERROR=-93,//发送数据错误
 	NO_DATA_TO_SEND=-92,//无数据可发送,
 	INVALID_PS_DATA=-91, //PUBSUB数据无效
-
+	INVALID_RESP_DATA,//RPC接收到无效数据
 	SEND_QUEQUE_EXCEED, //发送队列已满
 
 } client_send_msg_result_t;
@@ -152,5 +156,9 @@ BOOL ICACHE_FLASH_ATTR bb_put_s32(byte_buffer_t *buf, sint32_t x);
 BOOL ICACHE_FLASH_ATTR bb_put_u64(byte_buffer_t *buf, uint64_t x);
 BOOL ICACHE_FLASH_ATTR bb_put_s64(byte_buffer_t *buf, sint64_t x);
 BOOL ICACHE_FLASH_ATTR bb_put_buf(byte_buffer_t *buf, byte_buffer_t *src);
+
+#ifdef __cplusplus
+extern "C" {
+#endif
 
 #endif /* JMICRO_MQTT_JM_BUFFER_H_ */

@@ -6,6 +6,8 @@
 #include "../jm_client.h"
 #include "../jm_buffer.h"
 
+#include "test.h"
+
 extern BOOL client_recv_one_loop();
 extern void client_ws_init();
 
@@ -25,8 +27,9 @@ int test_jm_client_rpc()
 {
 	setbuf(stdout,NULL);
 
-	client_init();
 	client_ws_init();
+
+	client_init("test00","1",true);
 
 	char *pro = "{\"args\":[\"netty\"],\"params\":{\"NCR\":\"\"}}";
 	//size_t pdlen = strlen(pro);
@@ -38,9 +41,15 @@ int test_jm_client_rpc()
 	while(1) {
 		//bb_rmark(payload);
 		//client_invoke_rpc(-655376287, payload, (client_rpc_callback_fn*)client_rpc_callback);
-		client_invokeRpcWithStrArgs(-655376287, pro, (client_rpc_callback_fn*)client_rpc_callback, NULL);
+
+		char *serType = "netty";
+		msg_extra_data_t* args = extra_strKeyPut(NULL, serType, PREFIX_TYPE_STRINGG);
+		args->value.bytesVal = serType;
+		args->len = os_strlen(serType);
+
+		//client_invokeRpc(-655376287, args, (client_rpc_callback_fn*)client_rpc_callback, NULL);
 		//bb_rmark_reset(payload);
-		sleep(1);
+		sleep(2);
 		printf("One loop");
 		if(!client_recv_one_loop()) {
 			printf("client_recv_one_loop:fail\n");

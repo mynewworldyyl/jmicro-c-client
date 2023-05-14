@@ -1,101 +1,78 @@
 /*
  * jm_client.h
  *
- *  Created on: 2023Äê4ÔÂ16ÈÕ
+ *  Created on: 2023ï¿½ï¿½4ï¿½ï¿½16ï¿½ï¿½
  *      Author: yeyulei
  */
 
 #ifndef TESTCASE_JM_CLIENT_H_
 #define TESTCASE_JM_CLIENT_H_
 
-#include "jm_buffer.h"
 #include "jm_msg.h"
-#include "cJSON.h"
-
+#include "jm_buffer.h"
 #include "c_types.h"
-
-
 
 #define client_setPSItemDataType(v,flag) (*flag = (v << FLAG_DATA_TYPE) | *flag)
 
-#define MSG_OP_CODE_SUBSCRIBE 1//é”Ÿæ–¤æ‹·é”Ÿæ–¤æ‹·é”Ÿæ–¤æ‹·æ¯
-#define MSG_OP_CODE_UNSUBSCRIBE 2//å–é”Ÿæ–¤æ‹·é”Ÿæ–¤æ‹·é”Ÿæ–¤æ‹·é”Ÿæ–¤æ‹·æ¯
-#define MSG_OP_CODE_FORWARD 3//è½¬é”Ÿæ–¤æ‹·é”Ÿæ–¤æ‹·æ¯
-#define MSG_OP_CODE_FORWARD_BY_TOPIC 4//¸ù¾İÖ÷Ìâ×ö×ª·¢
+#define MSG_OP_CODE_SUBSCRIBE 1//è®¢é˜…æ¶ˆæ¯æ“ä½œç 
+#define MSG_OP_CODE_UNSUBSCRIBE 2//å–æ¶ˆè®¢é˜…æ¶ˆæ¯æ“ä½œç 
+#define MSG_OP_CODE_FORWARD 3//ä¾æ®è´¦å·IDåšæ¶ˆæ¯è½¬å‘
+#define MSG_OP_CODE_FORWARD_BY_TOPIC 4//æ ¹æ®ä¸»é¢˜åšæ¶ˆæ¯è½¬å‘
+
 
 typedef enum _client_act_login_status{
-	LSUCCESS=0,//µÇÂ¼³É¹¦
-	LOGIN_FAIL,//µÇÂ¼Ê§°Ü
-	LOGOUT,//Ã»µÇÂ¼
+	LSUCCESS=0,//ç™»å½•æˆåŠŸ
+	LOGIN_FAIL,//ç™»å½•å¤±è´¥
+	LOGOUT,//ç™»å‡º
 } client_act_login_status;
 
 typedef struct _c_pubsub_item{
 
-	//±êÖ¾
 	uint8_t dataFlag;
 
 	//private byte
 	uint8_t flag;
 
-	//ÏûÏ¢À´Ô´£¬¶ÔÓ¦Éè±¸ID
 	//private Integer
 	sint32_t fr;
 
-	//ÏûÏ¢ID,Î¨Ò»±êÊ¶Ò»¸öÏûÏ¢
 	//private long
 	sint64_t id; //0
 
-	sint8_t type;//1 ÏûÏ¢ÀàĞÍ£¬¸ù¾İÀàĞÍ×öÏûÏ¢×ª·¢
+	sint8_t type;
 
-	//Ö÷Ìâ
 	//private String
 	char *topic; //2
 
-	//Ô´×â»§£¬Éè±¸·şÎñÉÌ×â»§
 	//private int
 	sint32_t srcClientId; //3
 
-	//ÏûÏ¢·¢ËÍ¸øË­£¬¶ÔÓ¦Éè±¸ID
 	//private Integer
 	sint32_t to; //4
 
-	//ÏûÏ¢·¢ËÍ½á¹û»Øµ÷µÄRPC·½·¨£¬ÓÃÓÚÏûÏ¢·şÎñÆ÷¸ø·¢ËÍÕß»Øµ÷
 	//private String
 	char *callback ; //5
 
-	//ÑÓ³Ù¶à¾Ã·¢ËÍ£¬µ¥Î»ÊÇÃë
 	//private long
 	uint8_t delay;  //6
 
-	//ÏûÏ¢ÉÏÏÂÎÄ
 	/*private Map<String,Object>*/
 	msg_extra_data_t *cxt; //7
 
-	//ÏûÏ¢Êı¾İ
 	//private Object
 	//byte_buffer_t *data;  //8
 
 	void *data;
 
-	//±¾µØ»Øµ÷
 	//private transient ILocalCallback localCallback;
 
-	//¿Í»§¶Ë·¢ËÍÊ§°Ü´ÎÊı£¬ÓÃÓÚÖØ·¢¼ÆÊı£¬Èç¹ûÏûÏ¢Ê§°Ü´ÎÊıµ½´ïÒ»¶¨Á¿£¬½«ÏûÏ¢¶ªÆú£¬²¢µ÷ÓÃlocalCallback£¨Èç¹û´æÔÚ£©Í¨Öªµ÷ÓÃÕß£¬
 	//private transient int failCnt = 0;
 
 } jm_pubsub_item_t;
 
-/**
- * ÏûÏ¢´¦ÀíÆ÷
- * Ã¿¸öÏûÏ¢typeĞèÒªÒ»¸öÏûÏ¢´¦ÀíÆ÷À´´¦Àí
- *
- */
+
 typedef client_send_msg_result_t (*client_msg_hander_fn)(jm_msg_t *msg);
 
-/**
- * Òì²½ÏûÏ¢¼àÌıÆ÷
- * ´¦Àí¿Í»§¶ËÒì²½ÏûÏ¢·Ö·¢
- */
 //typedef void (*MqttCallback)(uint32_t *args);
 typedef uint8_t (*client_on_async_msg_fn)(jm_pubsub_item_t *item);
 
@@ -103,65 +80,48 @@ typedef uint8_t (*client_rpc_callback_fn)(byte_buffer_t *payload, void *cbArg);
 
 typedef uint8_t (*client_PubsubListenerFn)(jm_pubsub_item_t *psItem);
 
-//ÕËºÅµÇÂ¼×´Ì¬¼àÌıÆ÷
 typedef void (*client_login_listener_fn)(sint32_t code, char *msg, char *loginKey, sint32_t actId);
 
 
 typedef void (*client_conn_discon_fn)();
 
-/*
- * ÏòÍøÂçÖĞ·¢¹ØÏûÏ¢£¬ ²»Í¬Æ½Ì¨ĞèÊµÏÖ´Ë½Ó¿Ú
- */
 typedef client_send_msg_result_t (*client_send_msg_fn)(byte_buffer_t *buf);
+
+//æ¶ˆæ¯å¹¿æ’­å‘é€å™¨
+typedef client_send_msg_result_t (*client_p2p_msg_sender_fn)(byte_buffer_t *buf, char* host, uint16_t port);
 
 #ifdef __cplusplus
 extern "C"
 {
 #endif
 
-ICACHE_FLASH_ATTR BOOL client_init();
+ICACHE_FLASH_ATTR BOOL client_init(char *actName, char *pwd, BOOL doLogin);
 
-//µ×²ãÍøÂçÁ¬½Ó¶Ï¿ª
 ICACHE_FLASH_ATTR BOOL client_socketDisconCb();
 
-//µ×²ãÍøÂçÁ¬½Ó³É¹¦
 ICACHE_FLASH_ATTR BOOL client_socketConedCb();
 
 ICACHE_FLASH_ATTR BOOL client_socketSendTimeoutCb();
 
-//×¢²áÊı¾İ·¢ËÍÆ÷£¬ÓÉ¾ßÌåÍøÖÕÊµ²ãÕßµ÷ÓÃ
 ICACHE_FLASH_ATTR BOOL client_registMessageSender(client_send_msg_fn sender);
 
-//´¦Àí½ÓÊÕµ½µÄÏûÏ¢
+ICACHE_FLASH_ATTR BOOL client_registP2PMessageSender(client_p2p_msg_sender_fn sender);
+
 ICACHE_FLASH_ATTR client_send_msg_result_t client_onMessage(jm_msg_t *msg);
 
-//·¢ËÍÏûÏ¢
 ICACHE_FLASH_ATTR client_send_msg_result_t client_sendMessage(jm_msg_t *msg);
 
-//×¢²áÏûÏ¢´¦ÀíÆ÷
 ICACHE_FLASH_ATTR BOOL client_registMessageHandler(client_msg_hander_fn msg, sint8_t type);
 
-ICACHE_FLASH_ATTR client_send_msg_result_t client_invokeRpcWithArrayArgs(sint32_t mcode, cJSON *args,
-		client_rpc_callback_fn callback, void *cbArgs);
-
-ICACHE_FLASH_ATTR client_send_msg_result_t client_invokeRpcWithStrArgs(sint32_t mcode, char *payload,
-		client_rpc_callback_fn callback, void *cbArgs);
-
 /**
- * RPC ·½·¨µ÷ÓÃ
- * mcode£º·½·¨±àÂë
- * payload£º ²ÎÊı
- * rst£º ½á¹û´æ·ÅµØÖ·£¬rst==NULLÔòÎŞĞèÏìÓ¦½á¹û
- * ·µ»ØÖµ 0±íÊ¾µ÷ÓÃ³É¹¦, ÆäËû±íÊ¾Ê§°Ü
  */
-ICACHE_FLASH_ATTR client_send_msg_result_t client_invokeRpc(sint32_t mcode, byte_buffer_t *payload,
+ICACHE_FLASH_ATTR client_send_msg_result_t client_invokeRpc(sint32_t mcode, msg_extra_data_t *params,
 		client_rpc_callback_fn callback, void *cbArgs);
 
 ICACHE_FLASH_ATTR void client_initPubsubItem(jm_pubsub_item_t *item,uint8_t dataType);
 ICACHE_FLASH_ATTR msg_extra_data_t * client_topicForwardExtra(char *topic);
 
 /**
- * ·¢ËÍÒì²½ÏûÏ¢
  */
 ICACHE_FLASH_ATTR client_send_msg_result_t client_publishStrItem(char *topic, sint8_t type, char *content, msg_extra_data_t *extra);
 
@@ -171,7 +131,6 @@ ICACHE_FLASH_ATTR client_send_msg_result_t client_publishStrItem(char *topic, si
 ICACHE_FLASH_ATTR client_send_msg_result_t client_publishPubsubItem(jm_pubsub_item_t *item, msg_extra_data_t *extra);
 
 /**
- * ¶©ÔÄÒì²½ÏûÏ¢
  */
 ICACHE_FLASH_ATTR BOOL client_subscribe(char *topic, client_PubsubListenerFn listener, sint8_t type);
 
@@ -181,27 +140,23 @@ ICACHE_FLASH_ATTR BOOL client_subscribe(char *topic, client_PubsubListenerFn lis
 ICACHE_FLASH_ATTR BOOL client_subscribeByType(client_PubsubListenerFn listener, sint8_t type);
 
 /**
- * È¡Ïû¶©ÔÄ
  */
 ICACHE_FLASH_ATTR BOOL client_unsubscribe(char *topic, client_PubsubListenerFn listener);
 
 /**
- * ×¢²áµÇÂ¼×´Ì¬¼àÌıÆ÷£¬×î¶à¿ÉÒÔ×¢²á5¸ö¼àÌıÆ÷
+ * ×¢ï¿½ï¿½ï¿½Â¼×´Ì¬ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½×¢ï¿½ï¿½5ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
  */
 ICACHE_FLASH_ATTR BOOL client_registLoginListener(client_login_listener_fn fn);
 
 /**
- * É¾³ıµÇÂ¼×´Ì¬¼àÌıÆ÷
  */
 ICACHE_FLASH_ATTR BOOL client_unregistLoginListener(client_login_listener_fn fn);
 
 /**
- * µÇÂ¼JMicroÆ½Ì¨
  */
 ICACHE_FLASH_ATTR client_send_msg_result_t client_login(char *actName, char *pwd);
 
 /**
- * µÇ³öJMicroÆ½Ì¨
  */
 ICACHE_FLASH_ATTR client_send_msg_result_t client_logout();
 

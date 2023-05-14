@@ -1,7 +1,7 @@
 /*
  * jm_client_winsocket.c
  *
- *  Created on: 2023年4月17日
+ *  Created on: 2023锟斤拷4锟斤拷17锟斤拷
  *      Author: yeyulei
  */
 #include <stdio.h>
@@ -16,7 +16,7 @@
 #include "../jm_client.h"
 
 #define PORT 9092
-#define IP "192.168.3.41"
+#define IP "192.168.3.22"
 #define USERAGENT "ApOgEE MinGW Socket Client 1.0"
 
 static int client_socket = 0;
@@ -79,13 +79,13 @@ BOOL client_recv_one_loop() {
 	int tmpres = recv(client_socket, buf, BUFSIZ, 0);
 	if(tmpres <= 0) {
 		sleep(1);
-		return false;//无数据可读
+		return false;
 	}
 
 	//printChars(buf,tmpres);
 	if(!bb_put_chars(readBuf,buf,tmpres)){
-		INFO("写byte_buffer失败，剩余空可写空间：%d,需写空间:%d",bb_writeable_len(readBuf),tmpres);
-		bb_clear(readBuf);//清除缓存，丢包总比死机强
+		INFO("byte_buffer writeable len: %d, read len:%d",bb_writeable_len(readBuf),tmpres);
+		bb_clear(readBuf);
 		return false;
 	}
 
@@ -96,13 +96,11 @@ BOOL client_recv_one_loop() {
 		if(!msg) {
 			return true;
 		}
-		//bb_print(msg->payload);
-		sint8_t c = client_onMessage(msg);//消息通知
+		sint8_t c = client_onMessage(msg);
+		//int c = 0;
 		if(c != JM_SUCCESS) {
-			//perror("handle msg result code: %d");
 			printf("handle msg result code: %d\n",c);
 		}
-		//释放内存
 		if(msg->payload) {
 			bb_release(msg->payload);
 			msg->payload = NULL;
@@ -136,7 +134,7 @@ void client_ws_init() {
 	// setup remote socket
 	remote = (struct sockaddr_in *)malloc(sizeof(struct sockaddr_in *));
 	remote->sin_family = AF_INET;
-	printf("s_addr:%d\n", remote->sin_addr.s_addr);
+	printf("s_addr:%l\n", remote->sin_addr.s_addr);
 	remote->sin_addr.s_addr = inet_addr(ip);
 	remote->sin_port = htons(PORT);
 	printf("s_addr:%d\n", remote->sin_addr.s_addr);
@@ -144,7 +142,7 @@ void client_ws_init() {
 	//connect socket
 	if(connect(client_socket, (struct sockaddr *)remote, sizeof(struct sockaddr)) == SOCKET_ERROR){
 		closesocket(client_socket);
-		printf("Could not connect to：%s\n", IP);
+		printf("Could not connect to锟斤拷%s\n", IP);
 		WSACleanup();
 		exit(1);
 	}

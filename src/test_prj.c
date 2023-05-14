@@ -21,6 +21,9 @@ extern int test_jm_client_pubsub();
 extern int test_stdio_method();
 
 extern void testGetCacheItem();
+extern void test_udp_server();
+
+int test_udp_jm_client_pubsub();
 
 int main(char* argv, int argc)
 {
@@ -33,7 +36,11 @@ int main(char* argv, int argc)
 	//test_socket();
 	//test_jm_client();
 	//test_jm_client_rpc();
-	test_jm_client_pubsub();
+	//test_jm_client_pubsub();
 	//test_stdio_method();
 	//testGetCacheItem();
+
+	//test_udp_server();
+
+	test_udp_jm_client_pubsub();
 }

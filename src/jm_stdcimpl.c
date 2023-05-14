@@ -9,6 +9,7 @@
 #ifndef WIN32
 #include "user_interface.h"
 #include "osapi.h"
+#include "ctype.h"
 #endif
 
 #ifdef WIN32
@@ -47,10 +48,10 @@ ICACHE_FLASH_ATTR uint64_t jm_hash64(char* k, size_t len) {
 	return rv;
 }
 
-/*¹¦ÄÜ£ºÏò×Ö·û´® ¸ñÊ½»¯´òÓ¡Ò»¸ö×Ö·û´®
- *²ÎÊý£º¸ñÊ½»¯µÄ×Ö·û´®
- *×¢Òâ£ºÕâ¸öÊÇ¼òÒ×°æ±¾ (%02x Íê³É)
- * %-3s²»ÐÐ£¬ %fÒ²²»ÐÐ£¬ %X²»ÐÐ
+/*ï¿½ï¿½ï¿½Ü£ï¿½ï¿½ï¿½ï¿½Ö·ï¿½ï¿½ï¿½ ï¿½ï¿½Ê½ï¿½ï¿½ï¿½ï¿½Ó¡Ò»ï¿½ï¿½ï¿½Ö·ï¿½ï¿½ï¿½
+ *ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ê½ï¿½ï¿½ï¿½ï¿½ï¿½Ö·ï¿½ï¿½ï¿½
+ *×¢ï¿½â£ºï¿½ï¿½ï¿½ï¿½Ç¼ï¿½ï¿½×°æ±¾ (%02x ï¿½ï¿½ï¿½)
+ * %-3sï¿½ï¿½ï¿½Ð£ï¿½ %fÒ²ï¿½ï¿½ï¿½Ð£ï¿½ %Xï¿½ï¿½ï¿½ï¿½
  */
 ICACHE_FLASH_ATTR int jm_sprintf(char * str, const char *fmt, ...) {
 	int count = 0;
@@ -78,7 +79,7 @@ ICACHE_FLASH_ATTR int jm_sprintf(char * str, const char *fmt, ...) {
 		if (*fmt == '%') {
 			fmt++;
 			switch (*fmt) {
-			case 'd': /*ÕûÐÍ*/
+			case 'd': /*ï¿½ï¿½ï¿½ï¿½*/
 			{
 				n = va_arg(ap, int);
 				if (n < 0) {
@@ -93,7 +94,7 @@ ICACHE_FLASH_ATTR int jm_sprintf(char * str, const char *fmt, ...) {
 				str += jm_strlen(buf);
 				break;
 			}
-			case 'c': /*×Ö·ûÐÍ*/
+			case 'c': /*ï¿½Ö·ï¿½ï¿½ï¿½*/
 			{
 				c = va_arg(ap, int);
 				*str = c;
@@ -101,7 +102,7 @@ ICACHE_FLASH_ATTR int jm_sprintf(char * str, const char *fmt, ...) {
 
 				break;
 			}
-			case 'x': /*16½øÖÆ*/
+			case 'x': /*16ï¿½ï¿½ï¿½ï¿½*/
 			{
 				n = va_arg(ap, int);
 				jm_xtoa(n, buf);
@@ -109,21 +110,21 @@ ICACHE_FLASH_ATTR int jm_sprintf(char * str, const char *fmt, ...) {
 				str += jm_strlen(buf);
 				break;
 			}
-			case 's': /*×Ö·û´®*/
+			case 's': /*ï¿½Ö·ï¿½ï¿½ï¿½*/
 			{
 				s = va_arg(ap, char *);
 				os_memcpy(str, s, jm_strlen(s));
 				str += jm_strlen(s);
 				break;
 			}
-			case '%': /*Êä³ö%*/
+			case '%': /*ï¿½ï¿½ï¿½%*/
 			{
 				*str = '%';
 				str++;
 
 				break;
 			}
-			case '0': /*Î»²»×ãµÄ×ó²¹0*/
+			case '0': /*Î»ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½0*/
 			{
 				index = 0;
 				num = 0;
@@ -132,7 +133,7 @@ ICACHE_FLASH_ATTR int jm_sprintf(char * str, const char *fmt, ...) {
 				while (1) {
 					fmt++;
 					ret = jm_isDigit(*fmt);
-					if (ret == 1) //ÊÇÊý×Ö
+					if (ret == 1) //ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
 							{
 						digit[index] = *fmt;
 						index++;
@@ -142,7 +143,7 @@ ICACHE_FLASH_ATTR int jm_sprintf(char * str, const char *fmt, ...) {
 					}
 				}
 				switch (*fmt) {
-				case 'd': /*ÕûÐÍ*/
+				case 'd': /*ï¿½ï¿½ï¿½ï¿½*/
 				{
 					n = va_arg(ap, int);
 					if (n < 0) {
@@ -163,7 +164,7 @@ ICACHE_FLASH_ATTR int jm_sprintf(char * str, const char *fmt, ...) {
 					}
 					break;
 				}
-				case 'x': /*16½øÖÆ*/
+				case 'x': /*16ï¿½ï¿½ï¿½ï¿½*/
 				{
 					n = va_arg(ap, int);
 					jm_xtoa(n, buf);
@@ -179,7 +180,7 @@ ICACHE_FLASH_ATTR int jm_sprintf(char * str, const char *fmt, ...) {
 					}
 					break;
 				}
-				case 's': /*×Ö·û´®*/
+				case 's': /*ï¿½Ö·ï¿½ï¿½ï¿½*/
 				{
 					s = va_arg(ap, char *);
 					len = jm_strlen(s);
@@ -219,8 +220,8 @@ ICACHE_FLASH_ATTR int jm_sprintf(char * str, const char *fmt, ...) {
 }
 
 /*
- *¹¦ÄÜ£ºÕûÐÍ(int) ×ª»¯³É ×Ö·ûÐÍ(char)
- *×¢Òâ£º²»ÓÃ % / ·ûºÅµÄ»°£¬Ö»ÄÜÕýÈ·´òÓ¡:0...9µÄÊý×Ö¶ÔÓ¦µÄ×Ö·û'0'...'9'
+ *ï¿½ï¿½ï¿½Ü£ï¿½ï¿½ï¿½ï¿½ï¿½(int) ×ªï¿½ï¿½ï¿½ï¿½ ï¿½Ö·ï¿½ï¿½ï¿½(char)
+ *×¢ï¿½â£ºï¿½ï¿½ï¿½ï¿½ % / ï¿½ï¿½ï¿½ÅµÄ»ï¿½ï¿½ï¿½Ö»ï¿½ï¿½ï¿½ï¿½È·ï¿½ï¿½Ó¡:0...9ï¿½ï¿½ï¿½ï¿½ï¿½Ö¶ï¿½Ó¦ï¿½ï¿½ï¿½Ö·ï¿½'0'...'9'
  */
 ICACHE_FLASH_ATTR void jm_itoa(unsigned int n, char * buf) {
 	int i;
@@ -241,25 +242,25 @@ ICACHE_FLASH_ATTR void jm_itoa(unsigned int n, char * buf) {
 }
 
 /*
- *¹¦ÄÜ£º×Ö·ûÐÍ(char) ×ª»¯³É ÕûÐÍ(int)
+ *ï¿½ï¿½ï¿½Ü£ï¿½ï¿½Ö·ï¿½ï¿½ï¿½(char) ×ªï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½(int)
  */
 ICACHE_FLASH_ATTR int jm_atoi(char* pstr) {
 	int int_ret = 0;
-	int int_sign = 1; //Õý¸ººÅ±êÊ¾ 1:ÕýÊý -1:¸ºÊý
+	int int_sign = 1; //ï¿½ï¿½ï¿½ï¿½ï¿½Å±ï¿½Ê¾ 1:ï¿½ï¿½ï¿½ï¿½ -1:ï¿½ï¿½ï¿½ï¿½
 
-	if (pstr == NULL) //ÅÐ¶ÏÖ¸ÕëÊÇ·ñÎª¿Õ
+	if (pstr == NULL) //ï¿½Ð¶ï¿½Ö¸ï¿½ï¿½ï¿½Ç·ï¿½Îªï¿½ï¿½
 	{
 		return -1;
 	}
 	while (((*pstr) == ' ') || ((*pstr) == '\n') || ((*pstr) == '\t')
 			|| ((*pstr) == '\b')) {
-		pstr++; //Ìø¹ýÇ°ÃæµÄ¿Õ¸ñ×Ö·û
+		pstr++; //ï¿½ï¿½ï¿½ï¿½Ç°ï¿½ï¿½Ä¿Õ¸ï¿½ï¿½Ö·ï¿½
 	}
 
 	/*
-	 * ÅÐ¶ÏÕý¸ººÅ
-	 * Èç¹ûÊÇÕýºÅ£¬Ö¸ÕëÖ¸ÏòÏÂÒ»¸ö×Ö·û
-	 * Èç¹ûÊÇ·ûºÅ£¬°Ñ·ûºÅ±ê¼ÇÎªInteger_signÖÃ-1£¬È»ºóÔÙ°ÑÖ¸ÕëÖ¸ÏòÏÂÒ»¸ö×Ö·û
+	 * ï¿½Ð¶ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
+	 * ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Å£ï¿½Ö¸ï¿½ï¿½Ö¸ï¿½ï¿½ï¿½ï¿½Ò»ï¿½ï¿½ï¿½Ö·ï¿½
+	 * ï¿½ï¿½ï¿½ï¿½Ç·ï¿½ï¿½Å£ï¿½ï¿½Ñ·ï¿½ï¿½Å±ï¿½ï¿½ÎªInteger_signï¿½ï¿½-1ï¿½ï¿½È»ï¿½ï¿½ï¿½Ù°ï¿½Ö¸ï¿½ï¿½Ö¸ï¿½ï¿½ï¿½ï¿½Ò»ï¿½ï¿½ï¿½Ö·ï¿½
 	 */
 	if (*pstr == '-') {
 		int_sign = -1;
@@ -268,7 +269,7 @@ ICACHE_FLASH_ATTR int jm_atoi(char* pstr) {
 		pstr++;
 	}
 
-	while (*pstr >= '0' && *pstr <= '9') //°ÑÊý×Ö×Ö·û´®Öð¸ö×ª»»³ÉÕûÊý£¬²¢°Ñ×îºó×ª»»ºÃµÄÕûÊý¸³¸øRet_Integer
+	while (*pstr >= '0' && *pstr <= '9') //ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ö·ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½×ªï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½×ªï¿½ï¿½ï¿½Ãµï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ret_Integer
 	{
 		int_ret = int_ret * 10 + *pstr - '0';
 		pstr++;
@@ -279,9 +280,9 @@ ICACHE_FLASH_ATTR int jm_atoi(char* pstr) {
 }
 
 /*
- *¹¦ÄÜ£º16½øÖÆ×Ö(0x) ×ª»¯³É ×Ö·ûÐÍ(char)
- *×¢Òâ£º²»ÓÃ % / ·ûºÅµÄ»°£¬Ö»ÄÜÕýÈ·´òÓ¡£¬0...9..15µÄÊý×Ö,¶ÔÓ¦µÄ'0'...'9''A'...'F'
- *×¢Òâ£ºÓÉÓÚ±àÒëÎÊÌâ£¬Õâ¸öº¯Êý£¬ÔÝÊ±ÓÉuart_sendByte_hex()º¯ÊýÌæ´ú
+ *ï¿½ï¿½ï¿½Ü£ï¿½16ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½(0x) ×ªï¿½ï¿½ï¿½ï¿½ ï¿½Ö·ï¿½ï¿½ï¿½(char)
+ *×¢ï¿½â£ºï¿½ï¿½ï¿½ï¿½ % / ï¿½ï¿½ï¿½ÅµÄ»ï¿½ï¿½ï¿½Ö»ï¿½ï¿½ï¿½ï¿½È·ï¿½ï¿½Ó¡ï¿½ï¿½0...9..15ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½,ï¿½ï¿½Ó¦ï¿½ï¿½'0'...'9''A'...'F'
+ *×¢ï¿½â£ºï¿½ï¿½ï¿½Ú±ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½â£¬ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ê±ï¿½ï¿½uart_sendByte_hex()ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
  */
 ICACHE_FLASH_ATTR void jm_xtoa(unsigned int n, char * buf) {
 	int i;
@@ -309,7 +310,7 @@ ICACHE_FLASH_ATTR void jm_xtoa(unsigned int n, char * buf) {
 }
 
 /*
- * ÅÐ¶ÏÒ»¸ö×Ö·ûÊÇ·ñÊý×Ö
+ * ï¿½Ð¶ï¿½Ò»ï¿½ï¿½ï¿½Ö·ï¿½ï¿½Ç·ï¿½ï¿½ï¿½ï¿½ï¿½
  */
 ICACHE_FLASH_ATTR int jm_isDigit(unsigned char c) {
 	if (c >= '0' && c <= '9')
@@ -319,7 +320,7 @@ ICACHE_FLASH_ATTR int jm_isDigit(unsigned char c) {
 }
 
 /*
- * ÅÐ¶ÏÒ»¸ö×Ö·ûÊÇ·ñÓ¢ÎÄ×ÖÄ¸
+ * ï¿½Ð¶ï¿½Ò»ï¿½ï¿½ï¿½Ö·ï¿½ï¿½Ç·ï¿½Ó¢ï¿½ï¿½ï¿½ï¿½Ä¸
  */
 ICACHE_FLASH_ATTR int jm_isLetter(unsigned char c) {
 	if (c >= 'a' && c <= 'z')

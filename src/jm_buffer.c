@@ -462,9 +462,12 @@ ICACHE_FLASH_ATTR char* bb_readString(byte_buffer_t *buf,sint8_t *flag) {
 		}
 
 		if(len == MAX_BYTE_VALUE) {
-			bb_get_u16(buf,&len);
-			if(len == MAX_SHORT_VALUE) {
+			uint16_t sl;
+			bb_get_u16(buf,&sl);
+			if(sl == MAX_SHORT_VALUE) {
 				bb_get_u32(buf,&len);
+			}else {
+				len = sl;
 			}
 		}
 
@@ -543,7 +546,7 @@ char* ICACHE_FLASH_ATTR bb_read_chars(byte_buffer_t *buf){
 	}
 
 	if(len > 0){
-		char *cs = bb_create(len);
+		char *cs = os_zalloc(len);
 		if(cs == NULL) return NULL;
 		if(!bb_get_chars(buf,cs,len)) {
 			INFO("ERROR:bb_read_chars read chars fail\n");

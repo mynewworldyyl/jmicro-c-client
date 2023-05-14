@@ -16,19 +16,19 @@
 
 #include "jm_stdcimpl.h"
 
-#define SIZE 11 //³õÊ¼ÈÝÁ¿
+#define SIZE 11 //ï¿½ï¿½Ê¼ï¿½ï¿½ï¿½ï¿½
 
-//»º´æMap
+//ï¿½ï¿½ï¿½ï¿½Map
 static jm_hash_map_t* cacheMap;
 
-/*******************************Hash Map ¶¨Òå½áÊø***************************************/
+/*******************************Hash Map ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½***************************************/
 
 ICACHE_FLASH_ATTR static jm_hash_map_item_t* _hashmap_getItem(jm_hash_map_t *map, char *cacheName, uint32_t idx) {
 	if(map->arr[idx] != NULL) {
 		jm_hash_map_item_t* it = map->arr[idx];
 		while(it != NULL) {
 			if(os_strcmp(cacheName,it->key) == 0) {
-				return it;//ÃüÖÐÔªËØ
+				return it;//ï¿½ï¿½ï¿½ï¿½Ôªï¿½ï¿½
 			}
 			it = it->next;
 		}
@@ -38,9 +38,9 @@ ICACHE_FLASH_ATTR static jm_hash_map_item_t* _hashmap_getItem(jm_hash_map_t *map
 
 ICACHE_FLASH_ATTR static jm_hash_map_item_t* _hashmap_newItem(jm_hash_map_t *map, char *cacheName, uint32_t idx) {
 	jm_hash_map_item_t* it = _hashmap_getItem(map,cacheName,idx);
-	if(it != NULL) return it;//Ö±½Ó·µ»ØÒÑ¾­´æÔÚµÄÏî
+	if(it != NULL) return it;//Ö±ï¿½Ó·ï¿½ï¿½ï¿½ï¿½Ñ¾ï¿½ï¿½ï¿½ï¿½Úµï¿½ï¿½ï¿½
 
-	//³öÏÖHash³åÍ»£¬ÐèÒª´´½¨ÐÂµÄÔªËØ
+	//ï¿½ï¿½ï¿½ï¿½Hashï¿½ï¿½Í»ï¿½ï¿½ï¿½ï¿½Òªï¿½ï¿½ï¿½ï¿½ï¿½Âµï¿½Ôªï¿½ï¿½
 	jm_hash_map_item_t* nit = os_zalloc(sizeof(struct _jm_hash_map_item));
 	os_memset(nit,0,sizeof(struct _jm_hash_map_item));
 
@@ -51,7 +51,7 @@ ICACHE_FLASH_ATTR static jm_hash_map_item_t* _hashmap_newItem(jm_hash_map_t *map
 	keyArr[s] = '\0';
 
 	nit->next = map->arr[idx];
-	map->arr[idx] = nit;//Ïàµ±ÓÚ±íÍ·²åÈë
+	map->arr[idx] = nit;//ï¿½àµ±ï¿½Ú±ï¿½Í·ï¿½ï¿½ï¿½ï¿½
 	nit->key = keyArr;
 
 	map->size++;
@@ -72,29 +72,29 @@ ICACHE_FLASH_ATTR static void _hashmap_release_item(jm_hash_map_item_t* it) {
 	os_free(it);
 }
 
-//ÊÍ·Å»Ø»º´æ
+//ï¿½Í·Å»Ø»ï¿½ï¿½ï¿½
 ICACHE_FLASH_ATTR BOOL hashmap_put(jm_hash_map_t *map, char *cacheName, void *extra){
 	uint32_t idx = _hashmap_idx(map,cacheName);
 	jm_hash_map_item_t* it = _hashmap_getItem(map,cacheName, idx);
 	if(it == NULL) {
 		it = _hashmap_newItem(map,cacheName, idx);
 		if(it == NULL) {
-			//ÄÚ´æÒç³ö
+			//ï¿½Ú´ï¿½ï¿½ï¿½ï¿½
 			INFO("cache_put mof create cache: %s", cacheName);
 			return false;
 		}
 	}
-	//´æÈëÖµ
+	//ï¿½ï¿½ï¿½ï¿½Öµ
 	it->val = extra;
 	return true;
 }
 
 ICACHE_FLASH_ATTR BOOL hashmap_remove(jm_hash_map_t *map, char *cacheName){
 	uint32_t idx = _hashmap_idx(map,cacheName);
-	if(map->arr[idx] == NULL) return false;//É¾³ý²»´æÔÚµÄÔªËØ
+	if(map->arr[idx] == NULL) return false;//É¾ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Úµï¿½Ôªï¿½ï¿½
 	if(map->arr[idx]->next == NULL) {
 		if(os_strcmp(cacheName, map->arr[idx]->key) == 0) {
-			//É¾³ý×îºóÒ»¸öÔªËØ
+			//É¾ï¿½ï¿½ï¿½ï¿½ï¿½Ò»ï¿½ï¿½Ôªï¿½ï¿½
 			_hashmap_release_item(map->arr[idx]);
 			map->arr[idx] = NULL;
 			map->size--;
@@ -103,14 +103,14 @@ ICACHE_FLASH_ATTR BOOL hashmap_remove(jm_hash_map_t *map, char *cacheName){
 		return false;
 	}
 
-	//hash³åÍ»
+	//hashï¿½ï¿½Í»
 	jm_hash_map_item_t* it = map->arr+idx;
-	jm_hash_map_item_t* pre = NULL;//µ±Ç°ÔªËØµÄÇ°Ò»¸öÔªËØ
+	jm_hash_map_item_t* pre = NULL;//ï¿½ï¿½Ç°Ôªï¿½Øµï¿½Ç°Ò»ï¿½ï¿½Ôªï¿½ï¿½
 
 	while(it != NULL) {
 		if(os_strcmp(cacheName, it->key) == 0) {
 			if(pre == NULL) {
-				//µÚÒ»¸öÔªËØ
+				//ï¿½ï¿½Ò»ï¿½ï¿½Ôªï¿½ï¿½
 				map->arr[idx] = it->next;
 			} else {
 				pre->next = it->next;
@@ -129,7 +129,7 @@ ICACHE_FLASH_ATTR BOOL hashmap_remove(jm_hash_map_t *map, char *cacheName){
 	return false;
 }
 
-//´Ó»º´æÖÐÈ¡
+//ï¿½Ó»ï¿½ï¿½ï¿½ï¿½ï¿½È¡
 ICACHE_FLASH_ATTR void* hashmap_get(jm_hash_map_t *map, char *cacheName){
 	uint32_t idx = _hashmap_idx(map,cacheName);
 	jm_hash_map_item_t* it = _hashmap_getItem(map, cacheName, idx);
@@ -139,7 +139,7 @@ ICACHE_FLASH_ATTR void* hashmap_get(jm_hash_map_t *map, char *cacheName){
 	return NULL;
 }
 
-//ÔªËØKEYÊÇ·ñ´æÔÚ
+//Ôªï¿½ï¿½KEYï¿½Ç·ï¿½ï¿½ï¿½ï¿½
 ICACHE_FLASH_ATTR BOOL hashmap_exist(jm_hash_map_t *map, char *cacheName){
 	uint32_t idx = _hashmap_idx(map, cacheName);
 	return _hashmap_getItem(map, cacheName, idx) != NULL;
@@ -154,7 +154,7 @@ ICACHE_FLASH_ATTR jm_hash_map_t* hashmap_create(size_t cap){
 		cap = SIZE;
 	}
 
-	map->arr = os_zalloc(cap * sizeof(struct _jm_hash_map_item*));//·µ»ØÖ¸ÕëÊý×éÊ×µØÖ·
+	map->arr = os_zalloc(cap * sizeof(struct _jm_hash_map_item*));//ï¿½ï¿½ï¿½ï¿½Ö¸ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½×µï¿½Ö·
 	os_memset(map->arr,0,cap * sizeof(struct _jm_hash_map_item*));
 
 	map->cap = cap;
@@ -178,13 +178,13 @@ ICACHE_FLASH_ATTR void hashmap_release(jm_hash_map_t *map){
 	os_free(map);
 }
 
-/*******************************Hash Map ¶¨Òå½áÊø***************************************/
+/*******************************Hash Map ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½***************************************/
 
-/*******************************Cache ¶¨Òå¿ªÊ¼************************************/
+/*******************************Cache ï¿½ï¿½ï¿½å¿ªÊ¼************************************/
 
 ICACHE_FLASH_ATTR BOOL cache_init(char *cacheName, size_t itemSize){
 	if(cacheMap == NULL) {
-		cacheMap = hashmap_create(SIZE);//µÚÒ»¼¶Map
+		cacheMap = hashmap_create(SIZE);//ï¿½ï¿½Ò»ï¿½ï¿½Map
 		if(cacheMap == NULL) {
 			INFO("cache_init global cache fail: %s, %d\n",cacheName);
 			return false;
@@ -193,7 +193,7 @@ ICACHE_FLASH_ATTR BOOL cache_init(char *cacheName, size_t itemSize){
 
 	if(hashmap_exist(cacheMap, cacheName)) {
 		INFO("cache_init exist cache: %s\n",cacheName);
-		return false;//»º´æÒÑ¾­´æÔÚÍ¬Ãû»º´æ
+		return false;//ï¿½ï¿½ï¿½ï¿½ï¿½Ñ¾ï¿½ï¿½ï¿½ï¿½ï¿½Í¬ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
 	}
 
 	jm_cache_header_t* ch = os_zalloc(sizeof(struct _jm_cache_header));
@@ -209,7 +209,7 @@ ICACHE_FLASH_ATTR BOOL cache_init(char *cacheName, size_t itemSize){
 	if(!hashmap_put(cacheMap,cacheName,ch)) {
 		INFO("cache_init fail to put cache: %s\n",cacheName);
 		os_free(ch);
-		return false;//»º´æÒÑ¾­´æÔÚ
+		return false;//ï¿½ï¿½ï¿½ï¿½ï¿½Ñ¾ï¿½ï¿½ï¿½ï¿½ï¿½
 	}
 
 	return true;
@@ -231,16 +231,16 @@ ICACHE_FLASH_ATTR static jm_cache_t* _cache_createCacheItem(jm_cache_header_t *c
 	}
 	os_memset(it,0,ch->memSize);
 
-	c->item = it;//ÒµÎñÊý¾Ý½Úµã
+	c->item = it;//Òµï¿½ï¿½ï¿½ï¿½ï¿½Ý½Úµï¿½
 
-	//²ÉÓÃÍ·²¿²åÈë
+	//ï¿½ï¿½ï¿½ï¿½Í·ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
 	c->next = ch->cache;
 	ch->cache = c;
 	return c;
 }
 
 /**
- * ´Ó»º´æÖÐÈ¡³öÒ»¸ö¿ÉÓÃµÄÏî
+ * ï¿½Ó»ï¿½ï¿½ï¿½ï¿½ï¿½È¡ï¿½ï¿½Ò»ï¿½ï¿½ï¿½ï¿½ï¿½Ãµï¿½ï¿½ï¿½
  */
 ICACHE_FLASH_ATTR void* cache_get(char *cacheName, BOOL created){
 	if(cacheMap == NULL) {
@@ -252,11 +252,11 @@ ICACHE_FLASH_ATTR void* cache_get(char *cacheName, BOOL created){
 
 	if(!ch) {
 		INFO("cache_get cache not exist: %s\n",cacheName);
-		return NULL;//»º´æ»¹²»´æÔÚ
+		return NULL;//ï¿½ï¿½ï¿½æ»¹ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
 	}
 
 	if(ch->cache) {
-		//ÓÐ»º´æ£¬²éÕÒÒ»¸öÎ´Ê¹ÓÃµÄÏî
+		//ï¿½Ð»ï¿½ï¿½æ£¬ï¿½ï¿½ï¿½ï¿½Ò»ï¿½ï¿½Î´Ê¹ï¿½Ãµï¿½ï¿½ï¿½
 		jm_cache_t *c = ch->cache, *pre = NULL;
 		while(c) {
 			if(!c->used) {
@@ -268,13 +268,13 @@ ICACHE_FLASH_ATTR void* cache_get(char *cacheName, BOOL created){
 		}
 
 		if(c) {
-			os_memset(c->item,0,ch->memSize);//ÖØÖÃÄÚ´æÎª0
+			os_memset(c->item,0,ch->memSize);//ï¿½ï¿½ï¿½ï¿½ï¿½Ú´ï¿½Îª0
 			c->used = true;
 			return c->item;
 		}
 	}
 
-	//µÚÒ»´Î´´½¨»º´æÏîÄ¿
+	//ï¿½ï¿½Ò»ï¿½Î´ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ä¿
 	INFO("cache_get cache element is NULL: %s\n",cacheName);
 	if(!created) {
 		INFO("cache_get no cache item to found: %s\n",cacheName);
@@ -291,7 +291,7 @@ ICACHE_FLASH_ATTR void* cache_get(char *cacheName, BOOL created){
 	}
 }
 
-//¹é»¹Ò»¸ö»º´æ
+//ï¿½é»¹Ò»ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
 ICACHE_FLASH_ATTR BOOL cache_back(char *cacheName, void *it){
 	if(cacheMap == NULL) {
 		INFO("cache_back cache is NULL: %s",cacheName);
@@ -302,7 +302,7 @@ ICACHE_FLASH_ATTR BOOL cache_back(char *cacheName, void *it){
 
 	if(!ch) {
 		INFO("cache_back cache not exist: %s\n",cacheName);
-		return false;//»º´æ»¹²»´æÔÚ
+		return false;//ï¿½ï¿½ï¿½æ»¹ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
 	}
 
 	jm_cache_t* c = ch->cache;
@@ -316,9 +316,9 @@ ICACHE_FLASH_ATTR BOOL cache_back(char *cacheName, void *it){
 	}
 
 	INFO("cache_back back item not exist: %s\n",cacheName);
-	return false;//»º´æ»¹²»´æÔÚ
+	return false;//ï¿½ï¿½ï¿½æ»¹ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
 
 }
 
 
-/*******************************Cache ¶¨Òå½áÊø************************************/
+/*******************************Cache ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½************************************/
