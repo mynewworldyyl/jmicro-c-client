@@ -1,6 +1,10 @@
 #ifndef JMICRO_MQTT_JM_test_H_
 #define JMICRO_MQTT_JM_test_H_
 
+#ifndef OK
+//#define OK 1
+#endif
+
 #define ICACHE_FLASH_ATTR
 
 #ifndef NULL
@@ -20,6 +24,6 @@
 #define os_strncpy strncpy
 #define os_printf printf
 #define os_memset memset
-
+#define os_sprintf sprintf
 #endif
 

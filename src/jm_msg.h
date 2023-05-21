@@ -9,8 +9,6 @@
 
 #define EXT_HEADER_LEN  2
 
-#define TOPIC_P2P "/__act/dev/p2pctrl"
-
 //public static final int SEC_LEN  128
 
 #define  PROTOCOL_BIN  0
@@ -48,6 +46,8 @@
 #define FLAG_ERROR  (1 << 6)
 
 #define FLAG_FORCE_RESP_JSON  (1 << 7)
+
+#define FLAG_DEV  (1 << 10)
 
 #define FLAG_RESP_TYPE  11
 
@@ -288,8 +288,25 @@ ICACHE_FLASH_ATTR msg_extra_data_t* extra_create();
 
 ICACHE_FLASH_ATTR msg_extra_data_t * extra_pullAll(msg_extra_data_t *from, msg_extra_data_t *to);
 
-ICACHE_FLASH_ATTR msg_extra_data_t* extra_strKeyGet(msg_extra_data_t *header, char *key);
-ICACHE_FLASH_ATTR msg_extra_data_t* extra_strKeyPut(msg_extra_data_t *header, char *strKey, sint8_t type);
+ICACHE_FLASH_ATTR msg_extra_data_t* extra_sget(msg_extra_data_t *header, char *key);
+ICACHE_FLASH_ATTR sint16_t extra_sgetS16(msg_extra_data_t *e, char *strKey);
+ICACHE_FLASH_ATTR sint8_t extra_sgetS8(msg_extra_data_t *e, char *strKey);
+ICACHE_FLASH_ATTR sint64_t extra_sgetS64(msg_extra_data_t *e, char *strKey);
+ICACHE_FLASH_ATTR sint32_t extra_sgetS32(msg_extra_data_t *e, char *strKey);
+ICACHE_FLASH_ATTR char extra_sgetChar(msg_extra_data_t *e, char *strKey);
+ICACHE_FLASH_ATTR BOOL extra_sgetBool(msg_extra_data_t *e, char *strKey);
+
+ICACHE_FLASH_ATTR char* extra_sgetChars(msg_extra_data_t *e, char *strKey);
+ICACHE_FLASH_ATTR  char* extra_sgetCharsCpy(msg_extra_data_t *e, char *strKey);
+
+ICACHE_FLASH_ATTR msg_extra_data_t* extra_sput(msg_extra_data_t *header, char *strKey, sint8_t type);
+ICACHE_FLASH_ATTR msg_extra_data_t* extra_sputByte(msg_extra_data_t *e, char *strKey, sint8_t val);
+ICACHE_FLASH_ATTR msg_extra_data_t* extra_sputShort(msg_extra_data_t *e, char *strKey, sint16_t val);
+ICACHE_FLASH_ATTR msg_extra_data_t* extra_sputInt(msg_extra_data_t *e, char *strKey, sint32_t val);
+ICACHE_FLASH_ATTR msg_extra_data_t* extra_sputLong(msg_extra_data_t *e, char *strKey, sint64_t val);
+ICACHE_FLASH_ATTR msg_extra_data_t* extra_sputChar(msg_extra_data_t *e, char *strKey, char val);
+ICACHE_FLASH_ATTR msg_extra_data_t* extra_sputBool(msg_extra_data_t *e, char *strKey, BOOL val);
+ICACHE_FLASH_ATTR msg_extra_data_t* extra_sputChars(msg_extra_data_t *e, char *strKey, char* val, uint16_t len);
 
 ICACHE_FLASH_ATTR msg_extra_data_t* extra_get(msg_extra_data_t *header, sint8_t key);
 ICACHE_FLASH_ATTR  sint16_t extra_getS16(msg_extra_data_t *e, sint8_t key);
@@ -335,6 +352,8 @@ ICACHE_FLASH_ATTR  void msg_setRpcMk(jm_msg_t *msg, BOOL f);
 ICACHE_FLASH_ATTR  BOOL msg_isDumpUpStream(jm_msg_t *msg);
 ICACHE_FLASH_ATTR  void msg_setDumpUpStream(jm_msg_t *msg, BOOL f);
 ICACHE_FLASH_ATTR  BOOL msg_isDumpDownStream(jm_msg_t *msg);
+ICACHE_FLASH_ATTR  void msg_setDev(jm_msg_t *msg, BOOL f);
+ICACHE_FLASH_ATTR  BOOL msg_isDev(jm_msg_t *msg);
 ICACHE_FLASH_ATTR  void msg_setDumpDownStream(jm_msg_t *msg, BOOL f);
 ICACHE_FLASH_ATTR  bool msg_isLoggable(jm_msg_t *msg);
 ICACHE_FLASH_ATTR  bool msg_isDebugMode(jm_msg_t *msg);

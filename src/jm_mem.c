@@ -72,7 +72,6 @@ ICACHE_FLASH_ATTR static void _hashmap_release_item(jm_hash_map_item_t* it) {
 	os_free(it);
 }
 
-//�ͷŻػ���
 ICACHE_FLASH_ATTR BOOL hashmap_put(jm_hash_map_t *map, char *cacheName, void *extra){
 	uint32_t idx = _hashmap_idx(map,cacheName);
 	jm_hash_map_item_t* it = _hashmap_getItem(map,cacheName, idx);
@@ -231,16 +230,14 @@ ICACHE_FLASH_ATTR static jm_cache_t* _cache_createCacheItem(jm_cache_header_t *c
 	}
 	os_memset(it,0,ch->memSize);
 
-	c->item = it;//ҵ�����ݽڵ�
+	c->item = it;
 
-	//����ͷ������
 	c->next = ch->cache;
 	ch->cache = c;
 	return c;
 }
 
 /**
- * �ӻ�����ȡ��һ�����õ���
  */
 ICACHE_FLASH_ATTR void* cache_get(char *cacheName, BOOL created){
 	if(cacheMap == NULL) {
@@ -252,7 +249,7 @@ ICACHE_FLASH_ATTR void* cache_get(char *cacheName, BOOL created){
 
 	if(!ch) {
 		INFO("cache_get cache not exist: %s\n",cacheName);
-		return NULL;//���滹������
+		return NULL;
 	}
 
 	if(ch->cache) {
@@ -274,8 +271,7 @@ ICACHE_FLASH_ATTR void* cache_get(char *cacheName, BOOL created){
 		}
 	}
 
-	//��һ�δ���������Ŀ
-	INFO("cache_get cache element is NULL: %s\n",cacheName);
+	//INFO("cache_get cache element is NULL: %s\n",cacheName);
 	if(!created) {
 		INFO("cache_get no cache item to found: %s\n",cacheName);
 		return NULL;
@@ -309,7 +305,7 @@ ICACHE_FLASH_ATTR BOOL cache_back(char *cacheName, void *it){
 	while(c) {
 		if(c->item == it) {
 			c->used = false;
-			INFO("cache_back back item success: %s\n",cacheName);
+			//INFO("cache_back back item success: %s\n",cacheName);
 			return true;
 		}
 		c = c->next;

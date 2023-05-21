@@ -6,10 +6,15 @@
  */
 
 
-#ifndef JMICRO_MQTT_JM_BUFFER_H_
-#define JMICRO_MQTT_JM_BUFFER_H_
+#ifndef JMICRO_JM_BUFFER_H_
+#define JMICRO_JM_BUFFER_H_
 
 #include "c_types.h"
+
+#define WRITE_BUF_SIZE 512
+
+//#define READ_BUF_SIZE 512
+
 
 #define MAX_SHORT_VALUE  32767
 
@@ -19,14 +24,6 @@
 
 #define EXTRA_KEY_TYPE_BYTE 0
 #define EXTRA_KEY_TYPE_STRING 1
-
-//第5，6两位一起表示data字段的编码类型
-#define FLAG_DATA_TYPE 5
-
-#define FLAG_DATA_STRING 0
-#define FLAG_DATA_BIN 1
-#define FLAG_DATA_JSON 2
-#define FLAG_DATA_EXTRA 3
 
 #define BB_EMPTY 0x01 //锟秸伙拷锟斤拷
 #define BB_FULL 0x02 //锟斤拷锟斤拷锟斤拷
@@ -54,6 +51,8 @@ typedef enum _client_send_msg_result{
 	INVALID_PS_DATA=-91, //PUBSUB数据无效
 	INVALID_RESP_DATA,//RPC接收到无效数据
 	SEND_QUEQUE_EXCEED, //发送队列已满
+	SEND_INVALID_ACCOUNT, //无效账号ID
+	SEND_INVALID_DEVICE_ID,//无效设备ID
 
 } client_send_msg_result_t;
 
@@ -161,4 +160,4 @@ BOOL ICACHE_FLASH_ATTR bb_put_buf(byte_buffer_t *buf, byte_buffer_t *src);
 extern "C" {
 #endif
 
-#endif /* JMICRO_MQTT_JM_BUFFER_H_ */
+#endif /* JMICRO_JM_BUFFER_H_ */

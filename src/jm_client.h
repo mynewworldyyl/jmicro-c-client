@@ -12,7 +12,17 @@
 #include "jm_buffer.h"
 #include "c_types.h"
 
+//第5，6两位一起表示data字段的编码类型
+#define FLAG_DATA_TYPE 5
+
+#define FLAG_DATA_STRING 0
+#define FLAG_DATA_BIN 1
+#define FLAG_DATA_JSON 2
+#define FLAG_DATA_EXTRA 3
+
 #define client_setPSItemDataType(v,flag) (*flag = (v << FLAG_DATA_TYPE) | *flag)
+
+#define TOPIC_P2P "/__act/dev/p2pctrl" //设备与手机端对端消息主题，不需要登录设备，也不能从服务器下发
 
 #define MSG_OP_CODE_SUBSCRIBE 1//订阅消息操作码
 #define MSG_OP_CODE_UNSUBSCRIBE 2//取消订阅消息操作码
@@ -88,14 +98,31 @@ typedef void (*client_conn_discon_fn)();
 typedef client_send_msg_result_t (*client_send_msg_fn)(byte_buffer_t *buf);
 
 //消息广播发送器
-typedef client_send_msg_result_t (*client_p2p_msg_sender_fn)(byte_buffer_t *buf, char* host, uint16_t port);
+typedef client_send_msg_result_t (*client_p2p_msg_sender_fn)(byte_buffer_t *buf, char* host, uint16_t port,uint16_t hlen);
+
+typedef bool (*client_timer_check_fn)(/*void *arg*/);
+
+typedef struct _c_timer_check{
+	client_timer_check_fn jm_checkNet;//本地网络状态检测
+	client_timer_check_fn jm_checkConCheck;//与JM物联网平台的连接
+	client_timer_check_fn jm_checkLocalServer;//本地设备端对端连接
+	client_timer_check_fn jm_checkLoginStatus;//物联网平台登录状态
+
+} timer_check;
 
 #ifdef __cplusplus
 extern "C"
 {
 #endif
 
-ICACHE_FLASH_ATTR BOOL client_init(char *actName, char *pwd, BOOL doLogin);
+//定时检测系统各服务状态，确保系统在条件充许性况下可以正常运行
+ICACHE_FLASH_ATTR BOOL client_main_timer();
+
+ICACHE_FLASH_ATTR timer_check* client_getCheck();
+
+ICACHE_FLASH_ATTR BOOL client_isLogin();
+
+ICACHE_FLASH_ATTR BOOL client_init(/*sint32_t actId, char *deviceId, BOOL doLogin*/);
 
 ICACHE_FLASH_ATTR BOOL client_socketDisconCb();
 
@@ -132,12 +159,12 @@ ICACHE_FLASH_ATTR client_send_msg_result_t client_publishPubsubItem(jm_pubsub_it
 
 /**
  */
-ICACHE_FLASH_ATTR BOOL client_subscribe(char *topic, client_PubsubListenerFn listener, sint8_t type);
+ICACHE_FLASH_ATTR BOOL client_subscribe(char *topic, client_PubsubListenerFn listener, sint8_t type, BOOL p2p);
 
 /**
  *
  */
-ICACHE_FLASH_ATTR BOOL client_subscribeByType(client_PubsubListenerFn listener, sint8_t type);
+ICACHE_FLASH_ATTR BOOL client_subscribeByType(client_PubsubListenerFn listener, sint8_t type,BOOL p2p);
 
 /**
  */
@@ -154,7 +181,7 @@ ICACHE_FLASH_ATTR BOOL client_unregistLoginListener(client_login_listener_fn fn)
 
 /**
  */
-ICACHE_FLASH_ATTR client_send_msg_result_t client_login(char *actName, char *pwd);
+ICACHE_FLASH_ATTR client_send_msg_result_t client_login(sint32_t actId, char *deviceId);
 
 /**
  */

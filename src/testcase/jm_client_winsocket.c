@@ -9,14 +9,15 @@
 #include <assert.h>
 
 #include "test.h"
+#include "jm_cfg.h"
 
 #include "../jm_constants.h"
 #include "../jm_msg.h"
 #include "../jm_buffer.h"
 #include "../jm_client.h"
 
-#define PORT 9092
-#define IP "192.168.3.22"
+//#define PORT 9092
+//#define IP "192.168.3.22"
 #define USERAGENT "ApOgEE MinGW Socket Client 1.0"
 
 static int client_socket = 0;
@@ -68,17 +69,20 @@ client_send_msg_result_t client_ws_send_msg(byte_buffer_t *buf) {
 void printChars(char *buf, int len){
 	char *p = buf;
 	for(int i = 0; i < len; i++) {
-		printf("%c",*(p+i));
+		INFO("%c",*(p+i));
 	}
-	printf("\n");
+	INFO("\n");
 
 }
 
 BOOL client_recv_one_loop() {
 
+	if(client_socket == 0) {
+		return false;
+	}
+
 	int tmpres = recv(client_socket, buf, BUFSIZ, 0);
 	if(tmpres <= 0) {
-		sleep(1);
 		return false;
 	}
 
@@ -99,7 +103,7 @@ BOOL client_recv_one_loop() {
 		sint8_t c = client_onMessage(msg);
 		//int c = 0;
 		if(c != JM_SUCCESS) {
-			printf("handle msg result code: %d\n",c);
+			INFO("handle msg result code: %d\n",c);
 		}
 		if(msg->payload) {
 			bb_release(msg->payload);
@@ -112,43 +116,59 @@ BOOL client_recv_one_loop() {
 
 }
 
-void client_ws_init() {
+bool client_jmConnCheck() {
 
-	printf("Socket client example\n");
+	if(client_socket > 0) {
+		return true;
+	}
 
+	if(strlen(sysCfg.jm_host)==0) {
+		INFO("client_jmConnCheck JM server HOST is null\n");
+		return false;
+	}
+
+	if(sysCfg.jm_port <= 0) {
+		INFO("client_jmConnCheck JM server PORT is null\n");
+		return false;
+	}
+
+	INFO("client_jmConnCheck Socket client example\n");
 	// create tcp socket
 	WSADATA wsaData;
 	WSAStartup(MAKEWORD(2, 2), &wsaData);
 
 	client_socket = socket(PF_INET, SOCK_STREAM, IPPROTO_TCP);
 	if (client_socket < 0) {
-		printf("client_socket = %d\n",client_socket);
-		perror("Can't create TCP socket\n");
+		INFO("client_jmConnCheck client_socket = %d\n",client_socket);
+		INFO("client_jmConnCheck Can't create TCP socket\n");
 		exit(1);
 	}
 
 	//char *ip ="172.67.188.132";
-	char *ip = IP;
-	printf("The IP: %s\n", ip);
+	char *ip = sysCfg.jm_host;
+	INFO("client_jmConnCheck The IP: %s\n", ip);
 
 	// setup remote socket
 	remote = (struct sockaddr_in *)malloc(sizeof(struct sockaddr_in *));
 	remote->sin_family = AF_INET;
-	printf("s_addr:%l\n", remote->sin_addr.s_addr);
+	INFO("client_jmConnCheck s_addr:%l\n", remote->sin_addr.s_addr);
 	remote->sin_addr.s_addr = inet_addr(ip);
-	remote->sin_port = htons(PORT);
-	printf("s_addr:%d\n", remote->sin_addr.s_addr);
+	remote->sin_port = htons(sysCfg.jm_port);
+	INFO("client_jmConnCheck s_addr:%d\n", remote->sin_addr.s_addr);
 
 	//connect socket
 	if(connect(client_socket, (struct sockaddr *)remote, sizeof(struct sockaddr)) == SOCKET_ERROR){
 		closesocket(client_socket);
-		printf("Could not connect to��%s\n", IP);
+		INFO("client_jmConnCheck Could not connect to %s close socket\n", sysCfg.jm_host);
+		client_socket = 0;
 		WSACleanup();
 		exit(1);
 	}
 
 	if(!client_registMessageSender(client_ws_send_msg)) {
-		perror("Regist sender fail");
+		closesocket(client_socket);
+		client_socket = 0;
+		INFO("client_jmConnCheck Regist sender fail, close socket");
 		exit(1);
 	}
 

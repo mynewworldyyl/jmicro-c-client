@@ -40,6 +40,7 @@ typedef struct _pubsub_listener_item{
 } ps_listener_item_t;
 
 typedef struct _pubsub_listener_map{
+	BOOL rm;//是否可处理远程消息，有些命令只能处理本地局域网的请求，不接受通过服务器转发的远程命令
 	char *topic;
 	sint64_t subMsgId;
 	sint32_t subId;
@@ -62,14 +63,16 @@ static sint32_t msgId = 0;
 const static char *TOPIC_PREFIX = "/__act/dev/";
 
 //const static char *MSG_TYPE = "__msgType";
-static char *DEVICE_ID = "/testdevice001";
+//static char *DEVICE_ID = "/testdevice001";
 
-#define llSize 10//登录监听器最大数量
+#define LLSIZE 10//登录监听器最大数量
 static sint8_t llCnt = 0;//当前登录监听器数量
-static client_login_listener_fn loginLises[llSize]={NULL};//登录监听器数组
+static client_login_listener_fn loginLises[LLSIZE]={NULL};//登录监听器数组
 
+static BOOL inited = 0;
 static char *loginKey = NULL;
-static uint32_t actId = 0;
+static sint32_t actId = 0;//设备关联账号
+static char *deviceId = NULL;//当前登录设备ID
 static uint32_t clientId = 0;
 static sint32_t loginCode = LOGOUT;//登录结果码，0表示 成功，其他失败
 static char *loginMsg  = NULL;
@@ -84,12 +87,48 @@ static ICACHE_FLASH_ATTR CHRI* _c_GetMsgHandler(sint8_t type);
 static ICACHE_FLASH_ATTR client_send_msg_result_t _c_pubsubMsgHandle(jm_msg_t *msg);
 
 static ICACHE_FLASH_ATTR client_send_msg_result_t _c_pubsubOpMsgHandle(jm_msg_t *msg);
+ICACHE_FLASH_ATTR static void _c_subTopicAfterjmLogin();
 
 static ICACHE_FLASH_ATTR char* _c_getTopic();
-//static ICACHE_FLASH_ATTR void _c_doSubscribeDeviceMessage();
 
-/**
- */
+static timer_check check;
+
+ICACHE_FLASH_ATTR timer_check* client_getCheck() {
+	return &check;
+}
+
+ICACHE_FLASH_ATTR BOOL client_main_timer() {
+	timer_check* checker = client_getCheck();
+
+	if(!checker->jm_checkNet()) {
+		//网络不可用
+		INFO("jm_main_timer jm_checkNet fail!\n");
+		//os_sleep(2);
+	}
+
+	if(!checker->jm_checkLocalServer()) {
+		//本地服务失败
+		INFO("jm_main_timer jm_checkLocalServer fail!\n");
+		//sleep(2);
+	}
+
+	if(checker->jm_checkConCheck()) {
+		if(!checker->jm_checkLoginStatus()) {
+			//账号登录验证失败
+			INFO("jm_main_timer jm_checkLoginStatus fail!\n");
+		}
+	}else {
+		//JM平台连接服务失败
+		INFO("jm_main_timer jm_checkConCheck fail!\n");
+		//sleep(2);
+	}
+
+}
+
+ICACHE_FLASH_ATTR BOOL client_isLogin(){
+	return loginCode == LSUCCESS;
+}
+
 static ICACHE_FLASH_ATTR client_msg_result_t* _c_GetRpcWaitForResponse(sint32_t msgId){
 	client_msg_result_t *m = wait_for_resps;
 	if(m != NULL) {
@@ -155,26 +194,23 @@ static ICACHE_FLASH_ATTR uint8_t _c_loginResult(byte_buffer_t *buf, void *arg){
 		return MEMORY_OUTOF_RANGE;
 	}
 
-	msg_extra_data_t *respDataEx1 = extra_strKeyGet(resultMap,"data");
+	//RespJRso.data
+	msg_extra_data_t *respDataEx1 = extra_sget(resultMap,"data");
 	if(respDataEx1 == NULL) {
 		INFO("_c_loginResult Invalid data response!");
 		return INVALID_RESP_DATA;
 	}
 
+	//Map<String,Object>
 	msg_extra_data_t *respDataEx = (msg_extra_data_t *)respDataEx1->value.bytesVal;
 
-
-	msg_extra_data_t *codeEx = extra_strKeyGet(respDataEx,"code");
+	msg_extra_data_t *codeEx = extra_sget(respDataEx1,"code");
 	if(codeEx)
 		loginCode = codeEx->value.s32Val;
 
-	msg_extra_data_t *actIdEx = extra_strKeyGet(respDataEx,"actId");
-	if(actIdEx)
-		actId = actIdEx->value.s32Val;
-
 	if(loginCode != 0) {
 		//有错误
-		msg_extra_data_t *msgEx = extra_strKeyGet(respDataEx,"msg");
+		msg_extra_data_t *msgEx = extra_sget(respDataEx1,"msg");
 		if(msgEx) {
 			int len = os_strlen(msgEx->value.bytesVal)+1;
 			char *cp = os_zalloc(len);
@@ -184,7 +220,79 @@ static ICACHE_FLASH_ATTR uint8_t _c_loginResult(byte_buffer_t *buf, void *arg){
 		}
 	} else {
 		//无错误
-		msg_extra_data_t *loginKeyEx = extra_strKeyGet(respDataEx,"data");
+		msg_extra_data_t *loginKeyEx = extra_sget(respDataEx,"loginKey");
+		if(loginKeyEx) {
+			loginKey = loginKeyEx->value.bytesVal;
+			int len = os_strlen(loginKey)+1;
+			char *cp = os_zalloc(len);
+			memcpy(cp,loginKey,len);
+			cp[len] = '\0';
+			loginKey = cp;
+		}
+
+		clientId = extra_sgetS32(respDataEx,"clientId");
+		//actId = extra_sgetS32(respDataEx,"actId");
+
+	}
+
+	extra_release(resultMap);
+
+	INFO("_c_loginResult code:%d, msg:%s, loginKey:%s\n", loginCode, loginMsg, loginKey);
+
+	if(llCnt > 0) {
+		for(int i = 0; i< LLSIZE; i++) {
+			if(loginLises[i] != NULL)
+				loginLises[i](loginCode,loginMsg,loginKey,actId);
+		}
+	}
+
+	/*if(client_isLogin()) {
+		_c_subTopicAfterjmLogin();
+	}*/
+
+	return JM_SUCCESS;
+}
+
+/*static ICACHE_FLASH_ATTR uint8_t _c_loginResult(byte_buffer_t *buf, void *arg){
+
+	msg_extra_data_t *resultMap = extra_decode(buf);
+	if(!resultMap) {
+		INFO("_c_loginResult got NULL result!");
+		return MEMORY_OUTOF_RANGE;
+	}
+
+	//RespJRso.data
+	msg_extra_data_t *respDataEx1 = extra_sget(resultMap,"data");
+	if(respDataEx1 == NULL) {
+		INFO("_c_loginResult Invalid data response!");
+		return INVALID_RESP_DATA;
+	}
+
+	//Map<String,Object>
+	msg_extra_data_t *respDataEx = (msg_extra_data_t *)respDataEx1->value.bytesVal;
+
+
+	msg_extra_data_t *codeEx = extra_sget(respDataEx,"code");
+	if(codeEx)
+		loginCode = codeEx->value.s32Val;
+
+	msg_extra_data_t *actIdEx = extra_sget(respDataEx,"actId");
+	if(actIdEx)
+		actId = actIdEx->value.s32Val;
+
+	if(loginCode != 0) {
+		//有错误
+		msg_extra_data_t *msgEx = extra_sget(respDataEx,"msg");
+		if(msgEx) {
+			int len = os_strlen(msgEx->value.bytesVal)+1;
+			char *cp = os_zalloc(len);
+			memcpy(cp,msgEx->value.bytesVal,len);
+			cp[len] = '\0';
+			loginMsg = cp;
+		}
+	} else {
+		//无错误
+		msg_extra_data_t *loginKeyEx = extra_sget(respDataEx,"data");
 		if(loginKeyEx) {
 			loginKey = loginKeyEx->value.bytesVal;
 			int len = os_strlen(loginKey)+1;
@@ -200,29 +308,41 @@ static ICACHE_FLASH_ATTR uint8_t _c_loginResult(byte_buffer_t *buf, void *arg){
 	INFO("_c_loginResult code:%d, msg:%s, loginKey:%s\n", loginCode, loginMsg, loginKey);
 
 	if(llCnt > 0) {
-		for(int i = 0; i< llSize; i++) {
+		for(int i = 0; i< LLSIZE; i++) {
 			if(loginLises[i] != NULL)
 				loginLises[i](loginCode,loginMsg,loginKey,actId);
 		}
 	}
 
 	return JM_SUCCESS;
-}
+}*/
 
 ICACHE_FLASH_ATTR BOOL client_registLoginListener(client_login_listener_fn fn){
-	if(llCnt == llSize) return false;
+	if(llCnt == LLSIZE) return false;
 	llCnt++;
-	for(int i = 0; i < llSize; i++) {
+
+	int uidx = -1;
+	for(int i = 0; i < LLSIZE; i++) {
 		if(loginLises[i] == NULL) {
-			loginLises[i] = fn;
-			return true;
+			if(fn == loginLises[i]) return true;//已经注册同一个方法
+			if(uidx == -1 && loginLises[i] == NULL) {
+				uidx = i;
+			}
 		}
 	}
-	return false;
+
+	if(uidx == -1) {
+		INFO("client_registLoginListener to max count login listener: %d",LLSIZE);
+		return false;
+	} else {
+		loginLises[uidx] = fn;
+		return true;
+	}
+
 }
 
 ICACHE_FLASH_ATTR BOOL client_unregistLoginListener(client_login_listener_fn fn){
-	for(int i = 0; i < llSize; i++) {
+	for(int i = 0; i < LLSIZE; i++) {
 		if(loginLises[i] == fn) {
 			loginLises[i] = NULL;
 			llCnt--;
@@ -232,18 +352,31 @@ ICACHE_FLASH_ATTR BOOL client_unregistLoginListener(client_login_listener_fn fn)
 	return false;
 }
 
-ICACHE_FLASH_ATTR client_send_msg_result_t client_login(char *actName, char *pwd){
-	INFO("client_login send login request u=%s,p=%s\n",actName,pwd);
+ICACHE_FLASH_ATTR client_send_msg_result_t client_login(sint32_t aid, char *did){
 
-	msg_extra_data_t* header = extra_strKeyPut(NULL, actName, PREFIX_TYPE_STRINGG);
-	header->value.bytesVal = actName;
-	header->len = os_strlen(actName);
+	if(client_isLogin()) return JM_SUCCESS;//已经登录
 
-	msg_extra_data_t* newPs = extra_strKeyPut(header, pwd, PREFIX_TYPE_STRINGG);
-	newPs->value.bytesVal = pwd;
-	newPs->len = os_strlen(pwd);
+	if(aid <= 0) {
+		INFO("client_login invalid account id %d\n", aid);
+		return SEND_INVALID_ACCOUNT;
+	}
 
-	client_send_msg_result_t rst = client_invokeRpc(-1678356186, header, _c_loginResult, NULL);
+	if(os_strlen(did) == 0) {
+		INFO("client_login deviceId is NULL\n");
+		return SEND_INVALID_DEVICE_ID;
+	}
+
+	actId = aid;
+	deviceId = did;
+
+	INFO("client_login send login request u=%d, deviceId=%s\n",actId, deviceId);
+
+	msg_extra_data_t* header = extra_sputS32(NULL, "actId", actId,-1);
+	extra_sputStr(header, "deviceId", deviceId);
+
+	//client_send_msg_result_t rst = client_invokeRpc(-1678356186, header, _c_loginResult, NULL);
+	//deviceLogin
+	client_send_msg_result_t rst = client_invokeRpc(-1239310325, header, _c_loginResult, NULL);
 
 	extra_release(header);
 
@@ -254,10 +387,19 @@ ICACHE_FLASH_ATTR client_send_msg_result_t client_login(char *actName, char *pwd
 	INFO("client_login send login request end\n");
 
 	return rst;
+
+}
+
+ICACHE_FLASH_ATTR client_send_msg_result_t _c_client_login(/*sint32_t actId, char *deviceId*/){
+	return client_login(actId, deviceId);
 }
 
 ICACHE_FLASH_ATTR client_send_msg_result_t client_logout(){
-
+	loginCode = 0;
+	loginKey = NULL;
+	actId = 0;
+	clientId = 0;
+	inited = false;
 	return JM_SUCCESS;
 }
 
@@ -306,8 +448,11 @@ ICACHE_FLASH_ATTR BOOL client_registP2PMessageSender(client_p2p_msg_sender_fn se
 
 ICACHE_FLASH_ATTR client_send_msg_result_t client_sendMessage(jm_msg_t *msg){
 
-	if(msg_sender == NULL) {
+	if(msg_sender == NULL && !msg_isUdp(msg)) {
 		INFO("client_sendMessage sender is NULL\n");
+		return SOCKET_SENDER_NULL;
+	}else if(msg_p2p_sender == NULL && msg_isUdp(msg)) {
+		INFO("client_sendMessage msg_p2p_sender is NULL\n");
 		return SOCKET_SENDER_NULL;
 	}
 
@@ -321,12 +466,21 @@ ICACHE_FLASH_ATTR client_send_msg_result_t client_sendMessage(jm_msg_t *msg){
 		return ENCODE_MSG_FAIL;
 	}
 
-	if(msg_isUdp(msg) && msg_p2p_sender != NULL) {
-		char *host = extra_getChars(msg->extraMap, EXTRA_KEY_UDP_HOST);
-		uint32_t port = extra_getS32(msg->extraMap, EXTRA_KEY_UDP_PORT);
-		return msg_p2p_sender(sendBuf,host,port);
+	if(msg_isUdp(msg)) {
+		if(msg_p2p_sender) {
+			msg_extra_data_t* eh = extra_get(msg->extraMap, EXTRA_KEY_UDP_HOST);
+			uint32_t port = extra_getS32(msg->extraMap, EXTRA_KEY_UDP_PORT);
+			return msg_p2p_sender(sendBuf,eh->value.bytesVal, port,eh->len);
+		} else {
+			INFO("client_sendMessage UDP connection not ready!\n");
+		}
+
 	} else {
-		return msg_sender(sendBuf);
+		if(msg_sender)
+			return msg_sender(sendBuf);
+		else {
+			INFO("client_sendMessage tcp connect not ready!\n");
+		}
 	}
 
 }
@@ -559,8 +713,7 @@ ICACHE_FLASH_ATTR BOOL _c_addListenerItem(ps_listener_map *m, client_PubsubListe
 		while(item) {
 			if(item->lis == listener){
 				item->type = type;
-				//闁跨喐鏋婚幏鐑芥晸閺傘倖瀚归柨鐔告灮閹风兘鏁撶粣鏍ㄦ嫕閹风兘鏁撻弬銈嗗闁跨喕濡敐蹇斿閻╂挳鏁撻幒銉ュ殩閹风兘鏁撻幋顏呭灇閻у憡瀚�
-				INFO("ERROR: client_subscribe aready sub topic: %s \n",m->topic);
+				INFO("_c_addListenerItem WARN: client_subscribe already sub topic: %s \n",m->topic);
 				return true;
 			}
 			item = item->next;
@@ -569,11 +722,11 @@ ICACHE_FLASH_ATTR BOOL _c_addListenerItem(ps_listener_map *m, client_PubsubListe
 
 	ps_listener_item_t *item = (ps_listener_item_t*)os_zalloc(sizeof(struct _pubsub_listener_item));
 	if(item == NULL) {
-		INFO("ERROR: client_subscribe create item fail topic: %s, %d \n",m->topic, type);
+		INFO("_c_addListenerItem ERROR: client_subscribe create item fail topic: %s, %d \n",m->topic, type);
 		return false;
 	}
 
-	INFO("client_subscribe add item success topic: %s, %d \n", m->topic, type);
+	INFO("_c_addListenerItem add item success topic: %s, %d \n", m->topic, type);
 
 	item->lis = listener;
 	item->next = NULL;
@@ -588,7 +741,7 @@ ICACHE_FLASH_ATTR BOOL _c_addListenerItem(ps_listener_map *m, client_PubsubListe
 	return true;
 }
 
-ICACHE_FLASH_ATTR BOOL _c_doSubscribe(ps_listener_map *m){
+ICACHE_FLASH_ATTR BOOL _c_doSubscribeTopic(ps_listener_map *m){
 	jm_msg_t *msg = NULL;
 
 	msg = msg_create_msg(MSG_TYPE_PUBSUB,NULL);
@@ -611,7 +764,12 @@ ICACHE_FLASH_ATTR BOOL _c_doSubscribe(ps_listener_map *m){
 	return true;
 }
 
-ICACHE_FLASH_ATTR BOOL client_subscribe(char *topic, client_PubsubListenerFn listener, sint8_t type){
+ICACHE_FLASH_ATTR BOOL client_subscribe(char *topic, client_PubsubListenerFn listener, sint8_t type, BOOL rm){
+
+	/*if(rm && !client_isLogin()) {
+		INFO("client_subscribe need login to regist subcribe topic:%s\n",topic);
+		return false;
+	}*/
 
 	if(listener == NULL) {
 		INFO("client_subscribe listener is NULL %s, type:%d\n",topic,type);
@@ -632,26 +790,28 @@ ICACHE_FLASH_ATTR BOOL client_subscribe(char *topic, client_PubsubListenerFn lis
 			return false;
 		}
 		isNewTopic = true;
+		m->rm = rm;
 	}
 
-	if(!_c_addListenerItem(m,listener,type)) {
+	if(!_c_addListenerItem(m, listener, type)) {
 		INFO("ERROR: client_subscribe add lis item fail topic: %s \n",topic);
 		return false;
 	}
 
-	if(isNewTopic) {
-		_c_doSubscribe(m);
+	if(rm && isNewTopic && client_isLogin()) {
+		_c_doSubscribeTopic(m);
 		INFO("client_subscribe subscribe success\n");
-	}else {
-		INFO("client_subscribe topic is subscribed %s\n",topic);
 	}
+
+	INFO("client_subscribe listener success topic: %s, type:%d\n",topic,type);
 
 	return true;
 }
 
-ICACHE_FLASH_ATTR BOOL client_subscribeByType(client_PubsubListenerFn listener, sint8_t type){
-	if(loginCode != LSUCCESS) {
-		INFO("client_subscribeByType\n");
+ICACHE_FLASH_ATTR BOOL client_subscribeByType(client_PubsubListenerFn listener, sint8_t type, BOOL rm){
+	if(rm && !client_isLogin()) {
+		//远程控制必须先登录才能订阅
+		INFO("client_subscribeByType not login\n");
 		return false;
 	}
 
@@ -661,7 +821,7 @@ ICACHE_FLASH_ATTR BOOL client_subscribeByType(client_PubsubListenerFn listener, 
 		return false;
 	}
 
-	if(!client_subscribe(topic, listener, type)) {
+	if(!client_subscribe(topic, listener, type, rm)) {
 		INFO("client_subscribeByType subscribe fail to topic:%s\n",topic);
 		os_free(topic);
 	}
@@ -669,7 +829,7 @@ ICACHE_FLASH_ATTR BOOL client_subscribeByType(client_PubsubListenerFn listener, 
 }
 
 ICACHE_FLASH_ATTR BOOL client_subscribeP2PByType(client_PubsubListenerFn listener, sint8_t type){
-	BOOL isNewTopic = false;
+	//BOOL isNewTopic = false;
 	ps_listener_map *m = _c_getPubsubListenerMap(TOPIC_P2P);
 	if(m == NULL) {
 		m = _c_createPubsubListenerMap(TOPIC_P2P);
@@ -766,7 +926,7 @@ static ICACHE_FLASH_ATTR void _c_dispachPubsubItem(jm_pubsub_item_t *it){
 	}
 }
 
-static ICACHE_FLASH_ATTR uint8_t _c_setDataFlag(int idx, uint8_t dataFlag) {
+static ICACHE_FLASH_ATTR uint8_t _psitem_setDataFlag(int idx, uint8_t dataFlag) {
 	return dataFlag | (1 << idx);
 }
 
@@ -774,15 +934,15 @@ static ICACHE_FLASH_ATTR uint8_t _c_setDataFlag(int idx, uint8_t dataFlag) {
 	this.dataFlag &= ~(1 << idx);
 }*/
 
-static ICACHE_FLASH_ATTR BOOL _c_isDataFlag(int idx, uint8_t dataFlag) {
+static ICACHE_FLASH_ATTR BOOL _psitem_isDataFlag(int idx, uint8_t dataFlag) {
 	return (dataFlag & (1 << idx)) != 0;
 }
 
-static ICACHE_FLASH_ATTR uint8_t _c_getDataType(uint8_t flag) {
+static ICACHE_FLASH_ATTR uint8_t _psitem_getDataType(uint8_t flag) {
 	return (flag >> FLAG_DATA_TYPE) & 0x03;
 }
 
-static ICACHE_FLASH_ATTR void _c_pubsubItemParseBin(jm_msg_t *msg){
+static ICACHE_FLASH_ATTR void _psitem_pubsubItemParseBin(jm_msg_t *msg){
 	jm_pubsub_item_t *it = _c_createPubsubItem();
 	if(!it){
 		goto error;
@@ -791,80 +951,80 @@ static ICACHE_FLASH_ATTR void _c_pubsubItemParseBin(jm_msg_t *msg){
 	byte_buffer_t *buf = msg->payload;
 
 	if(!bb_get_u8(buf,&it->dataFlag)) {
-		INFO("_c_pubsubItemParseBin fail to read dataFlag\n");
+		INFO("_psitem_pubsubItemParseBin fail to read dataFlag\n");
 		return;
 	}
 
 	if(!bb_get_u8(buf,&it->flag)) {
-		INFO("_c_pubsubItemParseBin fail to read flag\n");
+		INFO("_psitem_pubsubItemParseBin fail to read flag\n");
 		return;
 	}
 
 	if(!bb_get_s32(buf,&it->fr)) {
-		INFO("_c_pubsubItemParseBin fail to read fr\n");
+		INFO("_psitem_pubsubItemParseBin fail to read fr\n");
 		return;
 	}
 
-	if(_c_isDataFlag(0,it->dataFlag)) {
+	if(_psitem_isDataFlag(0,it->dataFlag)) {
 		if(!bb_get_s64(buf,&it->id)) {
-			INFO("_c_pubsubItemParseBin fail to read id\n");
+			INFO("_psitem_pubsubItemParseBin fail to read id\n");
 			return;
 		}
 	}
 
-	if(_c_isDataFlag(1,it->dataFlag)) {
+	if(_psitem_isDataFlag(1,it->dataFlag)) {
 		if(!bb_get_s8(buf,&it->type)) {
-			INFO("_c_pubsubItemParseBin fail to read type\n");
+			INFO("_psitem_pubsubItemParseBin fail to read type\n");
 			return;
 		}
 	}
 
-	if(_c_isDataFlag(2,it->dataFlag)) {
+	if(_psitem_isDataFlag(2,it->dataFlag)) {
 		sint8_t flag;
 		it->topic  = bb_readString(buf,&flag);
 		if(flag != JM_SUCCESS){
-			INFO("_c_pubsubItemParseBin fail to read topic\n");
+			INFO("_psitem_pubsubItemParseBin fail to read topic\n");
 			return;
 		}
 	}
 
-	if(_c_isDataFlag(3,it->dataFlag)) {
+	if(_psitem_isDataFlag(3,it->dataFlag)) {
 		if(!bb_get_s32(buf,&it->srcClientId)) {
-			INFO("_c_pubsubItemParseBin fail to read srcClientId\n");
+			INFO("_psitem_pubsubItemParseBin fail to read srcClientId\n");
 			return;
 		}
 	}
 
-	if(_c_isDataFlag(4,it->dataFlag)) {
+	if(_psitem_isDataFlag(4,it->dataFlag)) {
 		if(!bb_get_s32(buf,&it->to)) {
-			INFO("_c_pubsubItemParseBin fail to read to\n");
+			INFO("_psitem_pubsubItemParseBin fail to read to\n");
 			return;
 		}
 	}
 
-	if(_c_isDataFlag(5,it->dataFlag)) {
+	if(_psitem_isDataFlag(5,it->dataFlag)) {
 		sint8_t flag;
 		it->callback  = bb_readString(buf,&flag);
 		if(flag != JM_SUCCESS){
-			INFO("_c_pubsubItemParseBin fail to read callback\n");
+			INFO("_psitem_pubsubItemParseBin fail to read callback\n");
 			return;
 		}
 	}
 
-	/*if(_c_isDataFlag(6,it->dataFlag)) {
+	/*if(_psitem_isDataFlag(6,it->dataFlag)) {
 		if(!bb_get_u8(buf,&it->delay)) {
-			INFO("_c_pubsubItemParseBin fail to read delay\n");
+			INFO("_psitem_pubsubItemParseBin fail to read delay\n");
 			return;
 		}
 	}*/
 
-	if(_c_isDataFlag(6,it->dataFlag)) {
+	if(_psitem_isDataFlag(6,it->dataFlag)) {
 		//extra
 		it->cxt = extra_decode(buf);
 	}
 
-	if(_c_isDataFlag(7,it->dataFlag)) {
-		uint8 dt = _c_getDataType(it->flag);
+	if(_psitem_isDataFlag(7,it->dataFlag)) {
+		uint8 dt = _psitem_getDataType(it->flag);
 		if(FLAG_DATA_BIN == dt) {
 			/*if(data instanceof ISerializeObject) {
 				((ISerializeObject)this).decode(in);
@@ -875,7 +1035,7 @@ static ICACHE_FLASH_ATTR void _c_pubsubItemParseBin(jm_msg_t *msg){
 			if(size > 0) {
 				byte_buffer_t *b = bb_create(size);
 				if(!bb_get_buf(buf,b,size)) {
-					INFO("_c_pubsubItemParseBin fail to read bin payload size:%d\n",size);
+					INFO("_psitem_pubsubItemParseBin fail to read bin payload size:%d\n",size);
 					return;
 				}
 				it->data = b;
@@ -888,43 +1048,17 @@ static ICACHE_FLASH_ATTR void _c_pubsubItemParseBin(jm_msg_t *msg){
 			sint8_t flag;
 			it->data  = bb_readString(buf,&flag);
 			if(flag != JM_SUCCESS){
-				INFO("_c_pubsubItemParseBin fail to read string data\n");
+				INFO("_psitem_pubsubItemParseBin fail to read string data\n");
 				return;
 			}
 		}else if(FLAG_DATA_JSON== dt){
 			sint8_t flag;
 			char *p  = bb_readString(buf,&flag);
 			if(flag != JM_SUCCESS){
-				INFO("_c_pubsubItemParseBin fail to read json data\n");
+				INFO("_psitem_pubsubItemParseBin fail to read json data\n");
 				return;
 			}
 			it->data = p;
-
-			/*
-			sint8_t flag;
-			char *p  = bb_readString(buf,&flag);
-			if(flag != JM_SUCCESS){
-				INFO("_c_pubsubItemParseBin fail to read json data\n");
-				return;
-			}
-
-			cJSON *json = cJSON_ParseWithLength(p,0);
-			//cJSON *json = cJSON_Parse(buf->data);
-			if(!json) {
-				INFO("ERROR: parse json %s\n",p);
-				return;
-			}
-
-			if(cJSON_GetErrorPtr()) {
-				INFO("ERROR: %s\n",cJSON_GetErrorPtr());
-				return;
-			}
-
-			it->data = json;
-			*/
-			/*String json = in.readUTF();
-			this.data = json;*/
-			//out.writeUTF(JsonUtils.getIns().toJson(this.data));
 		} else {
 			it->data = extra_decode(buf);
 		}
@@ -935,21 +1069,21 @@ static ICACHE_FLASH_ATTR void _c_pubsubItemParseBin(jm_msg_t *msg){
 	sint8_t isUdp = extra_getS16(msg->extraMap, EXTRA_KEY_UDP_ACK);
 
 	if(port) {
-		msg_extra_data_t *ex = extra_strKeyPut(it->cxt,EXTRA_SKEY_UDP_PORT,PREFIX_TYPE_INT);
+		msg_extra_data_t *ex = extra_sput(it->cxt,EXTRA_SKEY_UDP_PORT,PREFIX_TYPE_INT);
 		ex->value.s32Val = port;
 		if(it->cxt == NULL) it->cxt = ex;
 
 	}
 
 	if(host) {
-		msg_extra_data_t *ex = extra_strKeyPut(it->cxt, EXTRA_SKEY_UDP_HOST, PREFIX_TYPE_STRINGG);
+		msg_extra_data_t *ex = extra_sput(it->cxt, EXTRA_SKEY_UDP_HOST, PREFIX_TYPE_STRINGG);
 		ex->value.bytesVal = host;
 		ex->neddFreeBytes = false;
-		ex->len = os_strlen(host);
+		ex->len = 4/*os_strlen(host)*/;//IPv4 四个字节长度
 		if(it->cxt == NULL) it->cxt = ex;
 	}
 
-	msg_extra_data_t *ex = extra_strKeyPut(it->cxt,EXTRA_SKEY_UDP_ACK,PREFIX_TYPE_BOOLEAN);
+	msg_extra_data_t *ex = extra_sput(it->cxt,EXTRA_SKEY_UDP_ACK,PREFIX_TYPE_BOOLEAN);
 	ex->value.s8Val = isUdp;
 
 	_c_dispachPubsubItem(it);
@@ -959,86 +1093,13 @@ static ICACHE_FLASH_ATTR void _c_pubsubItemParseBin(jm_msg_t *msg){
 		return;
 }
 
-/*
-static ICACHE_FLASH_ATTR void _c_pubsubItemParseJson(jm_msg_t *msg){
-
-	INFO("_c_pubsubItemParseJson got one json msg: %d\n",msg->msgId);
-
-	jm_pubsub_item_t *it = _c_createPubsubItem();
-	if(!it) goto error;
-
-	byte_buffer_t *buf = msg->payload;
-
-	if(buf== NULL) goto error;
-
-	size_t s = bb_readable_len(buf);
-	cJSON *json = cJSON_ParseWithLength(buf->data, s);
-	//cJSON *json = cJSON_Parse(buf->data);
-	if(!json) goto error;
-
-	if(cJSON_GetErrorPtr()) {
-		INFO("ERROR: %s\n",cJSON_GetErrorPtr());
-		return;
-	}
-
-	cJSON *item = cJSON_GetObjectItem(json,"flag");
-	it->flag = item == NULL ? 0: (sint8_t)item->valueint;
-
-	item = cJSON_GetObjectItem(json,"id");
-	it->id = item == NULL ? 0: (sint64_t)item->valuedouble;
-
-	item = cJSON_GetObjectItem(json,"srcClientId");
-	it->srcClientId = item == NULL ? 0: (sint32_t)item->valueint;
-
-	item = cJSON_GetObjectItem(json,"fr");
-	it->fr = item == NULL ? 0: (sint32_t)item->valueint;
-
-	item = cJSON_GetObjectItem(json,"to");
-	it->to = item == NULL ? 0: (sint32_t)item->valueint;
-
-	item = cJSON_GetObjectItem(json,"delay");
-	it->delay = item == NULL ? 0: (sint8_t)item->valueint;
-
-	item = cJSON_GetObjectItem(json,"type");
-	it->type = item == NULL ? 0: (sint8_t)item->valueint;
-
-	item = cJSON_GetObjectItem(json,"data");
-	char* data = item->valuestring;// cJSON_PrintUnformatted(item);//闁跨喐鏋婚幏宄扮安闁跨喓鐓弬銈嗗闁跨喐鏋婚幏鐑芥晸閺傘倖瀚归柨鐔告灮閹风兘鏁撻弬銈嗗闁跨喐鏋婚幏锟�
-	if(data != NULL) {
-		sint16_t sl = os_strlen(data)+1;
-		byte_buffer_t *b = bb_create(sl);
-		bb_put_chars(b,data,sl-1);
-		bb_put_char(b,'\0');
-		it->data = b;
-	}
-
-	INFO("type: %d, data:%s\n",it->type,data);
-
-	item = cJSON_GetObjectItem(json,"topic");
-	it->topic = item == NULL ? "": (char*)cJSON_GetStringValue(item);
-	if(it->topic == NULL) {
-		INFO("ERROR: read topic fail\r\n");
-		goto error;
-	}
-
-	_c_dispachPubsubItem(it);
-	INFO("_c_pubsubItemParseJson success finish: %d\n",msg->msgId);
-
-	error:
-		INFO("_c_pubsubItemParseJson finish free json: %d\n",msg->msgId);
-		if(json) cJSON_Delete(json);
-		_c_pubsubItemRelease(it);
-		return;
-}
-*/
-
 static ICACHE_FLASH_ATTR client_send_msg_result_t _c_pubsubMsgHandle(jm_msg_t *msg){
 	INFO("_c_pubsubMsgHandle got pubsub msg msgID:%d\n",msg->msgId);
 	if(msg_getDownProtocol(msg) == PROTOCOL_JSON) {
 		//_c_pubsubItemParseJson(msg);
 		os_printf("");
 	} else {
-		_c_pubsubItemParseBin(msg);
+		_psitem_pubsubItemParseBin(msg);
 	}
 	return JM_SUCCESS;
 }
@@ -1114,15 +1175,15 @@ ICACHE_FLASH_ATTR byte_buffer_t *_c_serialPsItem(jm_pubsub_item_t *it){
 		return NULL;
 	}
 
-	if(it->id != 0) it->dataFlag=_c_setDataFlag(0,it->dataFlag);
-	if(it->type != 0) it->dataFlag=_c_setDataFlag(1,it->dataFlag);
-	if(it->topic != NULL) it->dataFlag=_c_setDataFlag(2,it->dataFlag);
-	if(it->srcClientId != 0) it->dataFlag=_c_setDataFlag(3,it->dataFlag);
-	if(it->to != 0) it->dataFlag=_c_setDataFlag(4,it->dataFlag);
-	if(it->callback != NULL) it->dataFlag=_c_setDataFlag(5,it->dataFlag);
-	//if(it->delay != 0) it->dataFlag=_c_setDataFlag(6,it->dataFlag);
-	if(it->cxt != NULL) it->dataFlag=_c_setDataFlag(6,it->dataFlag);
-	if(it->data != NULL) it->dataFlag=_c_setDataFlag(7,it->dataFlag);
+	if(it->id != 0) it->dataFlag=_psitem_setDataFlag(0,it->dataFlag);
+	if(it->type != 0) it->dataFlag=_psitem_setDataFlag(1,it->dataFlag);
+	if(it->topic != NULL) it->dataFlag=_psitem_setDataFlag(2,it->dataFlag);
+	if(it->srcClientId != 0) it->dataFlag=_psitem_setDataFlag(3,it->dataFlag);
+	if(it->to != 0) it->dataFlag=_psitem_setDataFlag(4,it->dataFlag);
+	if(it->callback != NULL) it->dataFlag=_psitem_setDataFlag(5,it->dataFlag);
+	//if(it->delay != 0) it->dataFlag=_psitem_setDataFlag(6,it->dataFlag);
+	if(it->cxt != NULL) it->dataFlag=_psitem_setDataFlag(6,it->dataFlag);
+	if(it->data != NULL) it->dataFlag=_psitem_setDataFlag(7,it->dataFlag);
 
 	bb_put_u8(buf,it->dataFlag);
 	bb_put_u8(buf,it->flag);
@@ -1186,7 +1247,7 @@ ICACHE_FLASH_ATTR byte_buffer_t *_c_serialPsItem(jm_pubsub_item_t *it){
 	}
 
 	if(it->data != NULL) {
-		uint8 dt = _c_getDataType(it->flag);
+		uint8 dt = _psitem_getDataType(it->flag);
 		if(FLAG_DATA_BIN == dt) {
 			byte_buffer_t *bb = (byte_buffer_t*)it->data;
 			uint16_t len = bb_readable_len(bb);
@@ -1211,7 +1272,7 @@ ICACHE_FLASH_ATTR byte_buffer_t *_c_serialPsItem(jm_pubsub_item_t *it){
 			}
 		} else if(FLAG_DATA_EXTRA == dt){
 			uint16_t wl;
-			if(!extra_encode(it->data,buf,&wl,EXTRA_KEY_TYPE_STRING)){
+			if(!extra_encode(it->data, buf, &wl, EXTRA_KEY_TYPE_STRING)){
 				INFO("_client_serialItem write extra data error %d\n",wl);
 				return NULL;
 			}
@@ -1306,7 +1367,7 @@ ICACHE_FLASH_ATTR client_send_msg_result_t client_publishPubsubItem(jm_pubsub_it
 		return INVALID_PS_DATA;
 	}
 
-	INFO("client_publishPubsubItem create item JOSN body\n");
+	INFO("client_publishPubsubItem create item body\n");
 
     byte_buffer_t *buf = _c_serialPsItem(item);
 
@@ -1335,23 +1396,39 @@ ICACHE_FLASH_ATTR client_send_msg_result_t client_publishPubsubItem(jm_pubsub_it
 	return sendRst;
 }
 
+static ICACHE_FLASH_ATTR BOOL _c_isValidLoginInfo(){
+	if(os_strlen(deviceId) == 0) {
+		return false;
+	}
+
+	if(actId <= 0) {
+		return false;
+	}
+	return true;
+}
+
 static ICACHE_FLASH_ATTR char* _c_getTopic() {
+	if(!_c_isValidLoginInfo()) {
+		return NULL;
+	}
+
 	 char actIdStr[32];
 	 jm_itoa(actId, actIdStr);
 
-	size_t len = os_strlen(TOPIC_PREFIX) + os_strlen(DEVICE_ID) + os_strlen(actIdStr) + 1;
+	size_t len = os_strlen(TOPIC_PREFIX) + os_strlen(deviceId) + os_strlen(actIdStr) + 2;
 	char *topic = os_zalloc(len);
 	if(topic == NULL) {
 		INFO("_c_getTopic memory out \n");
 		return NULL;
 	}
 
-	INFO("_c_getTopic TOPIC_PREFIX:%s, actId:%d, DEVICE_ID:%s \n",TOPIC_PREFIX,actId, DEVICE_ID);
+	INFO("_c_getTopic TOPIC_PREFIX:%s, actId:%d, DEVICE_ID:%s \n",TOPIC_PREFIX,actId, deviceId);
 
 	os_memset(topic,0,len);
 	os_strncpy(topic, TOPIC_PREFIX, os_strlen(TOPIC_PREFIX));
 	jm_strcat(topic, actIdStr);
-	jm_strcat(topic, DEVICE_ID);
+	jm_strcat(topic, "/");
+	jm_strcat(topic, deviceId);
 
 	INFO("_c_getTopic topic:%s \n",topic);
 
@@ -1360,19 +1437,17 @@ static ICACHE_FLASH_ATTR char* _c_getTopic() {
 
 ICACHE_FLASH_ATTR BOOL client_socketDisconCb() {
 	connected = false;
+	//loginCode = LOGOUT;
 	return true;
 }
 
 ICACHE_FLASH_ATTR BOOL client_socketConedCb(){
 	INFO("client_socketConedCb connection ready\n");
 	connected = true;
-	if(loginCode == LSUCCESS) {
-		ps_listener_map *pi = ps_listener;
-		while(pi) {
-			INFO("client_socketConedCb resub topic: %s\n",pi->topic);
-			_c_doSubscribe(pi);
-			pi = pi->next;
-		}
+	if(!client_isLogin()) {
+		INFO("client_socketConedCb device try to login\n");
+		client_login(actId,deviceId);
+		return true;
 	}
 	INFO("client_socketConedCb return\n");
 	return true;
@@ -1382,22 +1457,35 @@ ICACHE_FLASH_ATTR BOOL client_socketSendTimeoutCb(){
 	return true;
 }
 
-ICACHE_FLASH_ATTR static uint8_t test_onPubsubItemType1Listener(jm_pubsub_item_t *item) {
-	INFO("test_onPubsubItemType1Listener: data= %s, fr= %d, type= %d \n",item->data, item->fr, item->type);
-	return JM_SUCCESS;
-}
+ICACHE_FLASH_ATTR static void _c_subTopicAfterjmLogin(sint32_t code, char *msg, char *loginKey, sint32_t actId) {
+	INFO("_c_subTopicAfterjmLogin got login result: %s, %s, %d, %d\n",loginKey,msg,code,actId);
 
-ICACHE_FLASH_ATTR static void test_jmLoginListener(sint32_t code, char *msg, char *loginKey, sint32_t actId) {
-	INFO("Listener1 got login result: %s, %s, %d, %d\n",loginKey,msg,code,actId);
-	INFO("test_jmLoginListener begin \n");
-	if(client_subscribeByType(test_onPubsubItemType1Listener,-128)) {
-		INFO("test_onPubsubItemType1Listener\n");
-	} else {
-		INFO("test_onPubsubItemType1Listener \n");
+	if(loginCode == LSUCCESS) {
+		ps_listener_map *pi = ps_listener;
+		while(pi) {
+			if(!pi->rm) {pi = pi->next;continue;} //p2p主题不能经服务器转发
+			if(os_strcmp(pi->topic,TOPIC_P2P) == 0) {
+				pi = pi->next;
+				continue;
+			}
+			INFO("_c_subTopicAfterjmLogin resub topic: %s\n",pi->topic);
+			_c_doSubscribeTopic(pi);
+			pi = pi->next;
+		}
 	}
 }
 
-ICACHE_FLASH_ATTR BOOL client_init(char *actName, char *pwd, BOOL doLogin) {
+ICACHE_FLASH_ATTR BOOL client_init(sint32_t aid, char *did) {
+
+	if(inited) return false;//已经初始化
+
+	if(actId > 0) {
+		actId = aid;
+	}
+
+	if(os_strlen(did) > 0) {
+		deviceId = did;
+	}
 
 	cache_init(CACHE_MESSAGE, sizeof(struct _jm_msg));
 	cache_init(CACHE_MESSAGE_EXTRA, sizeof(struct _msg_extra_data));
@@ -1411,15 +1499,19 @@ ICACHE_FLASH_ATTR BOOL client_init(char *actName, char *pwd, BOOL doLogin) {
 	client_registMessageHandler(_c_pubsubMsgHandle, MSG_TYPE_ASYNC_RESP);
 	client_registMessageHandler(_c_pubsubOpMsgHandle, MSG_TYPE_PUBSUB_RESP);
 
+	//client_subscribeByType(test_onPubsubItemType1Listener,-128,false);
+
 	//#ifdef MQTT_DEBUG_ON
 	//仅用于测试环境
-	INFO("Regist login result listener\n");
-	client_registLoginListener(test_jmLoginListener);
+	//INFO("client_init regist login result listener\n");
+	client_registLoginListener(_c_subTopicAfterjmLogin);
 	//#endif
 
-	if(doLogin) {
-		client_login(actName,pwd);
-	}
-
+	/*if(doLogin && actId > 0) {
+		client_login(deviceId,actId);
+	}else {
+		INFO("client_init invalid actId:%d, deviceId: %s\n",actId,deviceId);
+	}*/
+	inited = 1;
 	return true;
 }

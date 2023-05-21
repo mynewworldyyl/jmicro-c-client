@@ -8,6 +8,15 @@
 #ifndef TESTCASE_JMCONSTANTS_H_
 #define TESTCASE_JMCONSTANTS_H_
 
+#define RESP_CODE  "code" //响应码键
+#define RESP_MSG  "msg" //响应错误时错误消键
+#define RESP_OP  "op" //操作码，可选，操作实现可使用此值做操作分类，如 查询， 增加，删除，更新，一般默认0表示 查询
+
+#define RESP_OP_QRY 0
+#define RESP_OP_ADD 1
+#define RESP_OP_DEL 2
+#define RESP_OP_UP 3
+
 /*public static final long */
 #define DAY_IN_MILLIS (24*60*60*1000)
 

@@ -95,7 +95,7 @@ ICACHE_FLASH_ATTR msg_extra_data_t* extra_put(msg_extra_data_t *header, sint8_t 
 	return em;
 }
 
-ICACHE_FLASH_ATTR msg_extra_data_t* extra_strKeyGet(msg_extra_data_t *header, char *key) {
+ICACHE_FLASH_ATTR msg_extra_data_t* extra_sget(msg_extra_data_t *header, char *key) {
 	msg_extra_data_t *em = header;
 	while(em != NULL) {
 		if(em->strKey == key) {
@@ -110,8 +110,46 @@ ICACHE_FLASH_ATTR msg_extra_data_t* extra_strKeyGet(msg_extra_data_t *header, ch
 	return NULL;
 }
 
-ICACHE_FLASH_ATTR msg_extra_data_t* extra_strKeyPut(msg_extra_data_t *header, char *strKey, sint8_t type) {
-	msg_extra_data_t *eem = extra_strKeyGet(header, strKey);
+ICACHE_FLASH_ATTR msg_extra_data_t* extra_sputBool(msg_extra_data_t *header, char *strKey, BOOL val) {
+	msg_extra_data_t *msgExtra = extra_sput(header, strKey, PREFIX_TYPE_BOOLEAN);
+	msgExtra->value.boolVal = val;
+	return msgExtra;
+}
+
+ICACHE_FLASH_ATTR msg_extra_data_t* extra_sputS8(msg_extra_data_t *header, char *strKey, sint8_t val) {
+	msg_extra_data_t *msgExtra = extra_sput(header, strKey, PREFIX_TYPE_BYTE);
+	msgExtra->value.s8Val = val;
+	return msgExtra;
+}
+
+ICACHE_FLASH_ATTR msg_extra_data_t* extra_sputS16(msg_extra_data_t *header, char *strKey, sint16_t val) {
+	msg_extra_data_t *msgExtra = extra_sput(header, strKey, PREFIX_TYPE_SHORTT);
+	msgExtra->value.s16Val = val;
+	return msgExtra;
+}
+
+ICACHE_FLASH_ATTR msg_extra_data_t* extra_sputS32(msg_extra_data_t *header, char *strKey, sint32_t val) {
+	msg_extra_data_t *msgExtra = extra_sput(header, strKey, PREFIX_TYPE_INT);
+	msgExtra->value.s32Val = val;
+	return msgExtra;
+}
+
+ICACHE_FLASH_ATTR msg_extra_data_t* extra_sputS64(msg_extra_data_t *header, char *strKey, sint64_t val) {
+	msg_extra_data_t *msgExtra = extra_sput(header, strKey, PREFIX_TYPE_INT);
+	msgExtra->value.s64Val = val;
+	return msgExtra;
+}
+
+ICACHE_FLASH_ATTR msg_extra_data_t* extra_sputStr(msg_extra_data_t *header, char *strKey, char *val, sint16_t len) {
+	msg_extra_data_t *msgExtra = extra_sput(header, strKey, PREFIX_TYPE_STRINGG);
+	msgExtra->len = len < 0 ? os_strlen(val) : len;
+	msgExtra->value.bytesVal = val;
+	msgExtra->neddFreeBytes = true;
+	return msgExtra;
+}
+
+ICACHE_FLASH_ATTR msg_extra_data_t* extra_sput(msg_extra_data_t *header, char *strKey, sint8_t type) {
+	msg_extra_data_t *eem = extra_sget(header, strKey);
 	if(eem != NULL) {
 		eem->type = type;
 		return eem;
@@ -135,6 +173,110 @@ ICACHE_FLASH_ATTR msg_extra_data_t* extra_strKeyPut(msg_extra_data_t *header, ch
 
 	return em;  //永远返回新增加的元素
 }
+
+ICACHE_FLASH_ATTR  sint16_t extra_sgetS16(msg_extra_data_t *e, char *strKey){
+	msg_extra_data_t* ed = extra_sget(e,strKey);
+	return ed == NULL ? 0 :ed->value.s16Val;
+}
+
+ICACHE_FLASH_ATTR  sint8_t extra_sgetS8(msg_extra_data_t *e, char *strKey){
+	msg_extra_data_t* ed = extra_sget(e,strKey);
+	return ed == NULL ? 0 :ed->value.s8Val;
+}
+
+ICACHE_FLASH_ATTR  sint64_t extra_sgetS64(msg_extra_data_t *e, char *strKey){
+	msg_extra_data_t* ed = extra_sget(e,strKey);
+	return ed == NULL ? 0 :ed->value.s64Val;
+}
+
+ICACHE_FLASH_ATTR  sint32_t extra_sgetS32(msg_extra_data_t *e, char *strKey){
+	msg_extra_data_t* ed = extra_sget(e,strKey);
+	return ed == NULL ? 0 :ed->value.s32Val;
+}
+
+ICACHE_FLASH_ATTR  char extra_sgetChar(msg_extra_data_t *e, char *strKey){
+	msg_extra_data_t* ed = extra_sget(e,strKey);
+	return ed == NULL ? 0 :ed->value.charVal;
+}
+
+ICACHE_FLASH_ATTR  BOOL extra_sgetBool(msg_extra_data_t *e, char *strKey){
+	msg_extra_data_t* ed = extra_sget(e,strKey);
+	return ed == NULL ? false : ed->value.boolVal;
+}
+
+ICACHE_FLASH_ATTR  char* extra_sgetChars(msg_extra_data_t *e, char *strKey){
+	msg_extra_data_t* ed = extra_sget(e,strKey);
+	return ed == NULL ? NULL : ed->value.bytesVal;
+}
+
+ICACHE_FLASH_ATTR  char* extra_sgetCharsCpy(msg_extra_data_t *e, char *strKey){
+	msg_extra_data_t* msgEx = extra_sget(e,strKey);
+
+	if(msgEx) {
+		int len = os_strlen(msgEx->value.bytesVal)+1;
+		char *cp = os_zalloc(len);
+		memcpy(cp, msgEx->value.bytesVal, len);
+		cp[len] = '\0';
+		return cp;
+	}
+	return NULL;
+}
+
+ICACHE_FLASH_ATTR msg_extra_data_t* extra_sputByte(msg_extra_data_t *e, char *strKey, sint8_t val){
+	msg_extra_data_t *eem = extra_sput(e, strKey, PREFIX_TYPE_BYTE);
+	if(eem == NULL) {
+		return NULL;
+	}
+	eem->value.s8Val = val;
+	return eem;
+}
+
+ICACHE_FLASH_ATTR msg_extra_data_t* extra_sputShort(msg_extra_data_t *e, char *strKey, sint16_t val){
+	msg_extra_data_t *eem = extra_sput(e, strKey,PREFIX_TYPE_SHORTT);
+	if(eem == NULL) {
+		return NULL;
+	}
+	eem->value.s16Val = val;
+	return eem;
+}
+
+ICACHE_FLASH_ATTR msg_extra_data_t* extra_sputInt(msg_extra_data_t *e, char *strKey, sint32_t val){
+	msg_extra_data_t *eem = extra_sput(e, strKey,PREFIX_TYPE_INT);
+	if(eem == NULL) {
+		return NULL;
+	}
+	eem->value.s32Val = val;
+	return eem;
+}
+
+ICACHE_FLASH_ATTR msg_extra_data_t* extra_sputLong(msg_extra_data_t *e, char *strKey, sint64_t val){
+	msg_extra_data_t *eem = extra_sput(e, strKey,PREFIX_TYPE_LONG);
+	if(eem == NULL) {
+		return NULL;
+	}
+	eem->value.s64Val = val;
+	return eem;
+}
+
+ICACHE_FLASH_ATTR msg_extra_data_t* extra_sputChar(msg_extra_data_t *e, char *strKey, char val){
+	msg_extra_data_t *eem = extra_sput(e, strKey, PREFIX_TYPE_CHAR);
+	if(eem == NULL) {
+		return NULL;
+	}
+	eem->value.charVal = val;
+	return eem;
+}
+
+ICACHE_FLASH_ATTR msg_extra_data_t* extra_sputChars(msg_extra_data_t *e, char *strKey, char* val, uint16_t len){
+	msg_extra_data_t *eem = extra_sput(e, strKey,PREFIX_TYPE_STRINGG);
+	if(eem == NULL) {
+		return NULL;
+	}
+	eem->value.bytesVal = val;
+	eem->len = len;
+	return eem;
+}
+
 
 ICACHE_FLASH_ATTR static msg_extra_data_t * extra_decodeVal(byte_buffer_t *b) {
 
@@ -349,6 +491,7 @@ ICACHE_FLASH_ATTR static BOOL extra_encodeVal(msg_extra_data_t *extras, byte_buf
 		}
 		return true;
 	} else if (PREFIX_TYPE_STRINGG == type) {
+		//INFO("extra_encode len:%d, value: %s\n", extras->len, extras->value.bytesVal);
 		sint8_t len = extras->len;
 		if(len < MAX_BYTE_VALUE) {
 			bb_put_s8(b,len);
@@ -362,14 +505,18 @@ ICACHE_FLASH_ATTR static BOOL extra_encodeVal(msg_extra_data_t *extras, byte_buf
 			bb_put_s16(b,MAX_SHORT_VALUE);
 			bb_put_s32(b,len);
 		} else {
-			//
+			INFO("extra_encode write len fail by exceed %d\n", len);
 			return false;
 		}
 
 		if(len > 0) {
 			if(!bb_put_chars(b,extras->value.bytesVal,len)) {
+				INFO("extra_encode write value fail\n");
 				return false;
 			}
+			//INFO("extra_encode write string value success %s\n",extras->value.bytesVal);
+		}else {
+			INFO("extra_encode len less than zero %d\n",len);
 		}
 	}else if (PREFIX_TYPE_MAP == type) {
 		//请求参数是Map
@@ -463,38 +610,56 @@ ICACHE_FLASH_ATTR msg_extra_data_t *extra_decode(byte_buffer_t *b){
  */
 ICACHE_FLASH_ATTR BOOL extra_encode(msg_extra_data_t *extras, byte_buffer_t *b, uint16_t *wl, uint8_t keyType){
 
-	if(wl) *wl = 0;//默锟斤拷写锟斤拷锟捷筹拷锟饺碉拷锟斤拷0
+	INFO("extra_encode begin\n");
+
+	if(extras == NULL) {
+		INFO("extra_encode extras is NULL\n");
+		return false;
+	}
+
+	INFO("extra_encode wl\n");
+	if(wl) *wl = 0;
 
 	//锟斤拷锟街碉拷前写写位锟矫ｏ拷
 	uint16_t wpos = b->wpos;
 
+	//INFO("extra_encode count len, extras: %u\n",extras);
 	int eleCnt = 0;
 	msg_extra_data_t *te = extras;
 	while(te != NULL) {
 		eleCnt++;
 		te = te->next;
+		//INFO("extra_encode count len, te: %u\n",te);
 	}
 
+	INFO("extra_encode write len\n");
 	bb_put_u8(b,eleCnt);//写入元素个数
 
 	if(eleCnt == 0) {
 		if(wl) *wl = 1;
+		INFO("extra_encode element len is zero\n");
 		return true;//锟睫革拷锟斤拷锟斤拷锟斤拷
 	}
 
+	INFO("extra_encode put keytype\n");
 	if(!bb_put_u8(b, keyType)) {
 		INFO("extra_encode fail to write keyType: %d", keyType);
 		return false;
 	}
 
+	INFO("extra_encode encode loop begin\n");
+
 	BOOL strKey = keyType == EXTRA_KEY_TYPE_STRING;
 	while(extras != NULL) {
+
 		if(strKey) {
+			INFO("extra_encode skey: %s \n",extras->strKey);
 			if(!bb_writeString(b, extras->strKey,os_strlen(extras->strKey))) {
 				INFO("extra_encode fail to write string key: %s", extras->strKey);
 				return false;
 			}
 		}else {
+			INFO("extra_encode byte key: %d \n",extras->key);
 			if(!bb_put_s8(b, extras->key)) {
 				INFO("extra_encode fail to write key: %d", extras->key);
 				return false;
@@ -503,6 +668,7 @@ ICACHE_FLASH_ATTR BOOL extra_encode(msg_extra_data_t *extras, byte_buffer_t *b, 
 
 		if((PREFIX_TYPE_STRINGG == extras->type || PREFIX_TYPE_LIST == extras->type) &&
 				extras->value.bytesVal == NULL) {
+			INFO("extra_encode write PREFIX_TYPE_NULL: %d", PREFIX_TYPE_NULL);
 			if(!bb_put_s8(b, PREFIX_TYPE_NULL)) {
 				INFO("extra_encode fail to write PREFIX_TYPE_NULL: %d", PREFIX_TYPE_NULL);
 				return false;
@@ -512,6 +678,7 @@ ICACHE_FLASH_ATTR BOOL extra_encode(msg_extra_data_t *extras, byte_buffer_t *b, 
 			}
 		}
 
+		//INFO("extra_encode type: %d \n",extras->type);
 		if(!bb_put_s8(b, extras->type)) {
 			INFO("extra_encode write extra type fail: %d", extras->type);
 			return false;
@@ -520,6 +687,7 @@ ICACHE_FLASH_ATTR BOOL extra_encode(msg_extra_data_t *extras, byte_buffer_t *b, 
 		if(!extra_encodeVal(extras,b)) {
 			return false;
 		}
+		//INFO("extra_encode value success\n");
 
 		extras = extras->next;
 	}
@@ -534,6 +702,8 @@ ICACHE_FLASH_ATTR BOOL extra_encode(msg_extra_data_t *extras, byte_buffer_t *b, 
 
 	//锟斤拷锟斤拷锟斤拷锟斤拷锟杰筹拷锟斤拷
 	if(wl) *wl = wlen;
+
+	INFO("extra_encode end write len: %d\n",wlen);
 
 	return true;
 }
@@ -778,6 +948,8 @@ ICACHE_FLASH_ATTR jm_msg_t* msg_create_msg(sint8_t type, byte_buffer_t *payload)
 	msg_setForce2Json(msg, false);//响应消息不转JSON
 	msg_setFromApiGateway(msg, true);
 
+	msg_setDev(msg,true);//设备消息
+
 	/*ByteBuffer data = null;
 	if(Message.PROTOCOL_BIN == up) {
 		data = req.encode();
@@ -798,6 +970,7 @@ ICACHE_FLASH_ATTR jm_msg_t* msg_create_rpc_msg(sint32_t mcode, byte_buffer_t *pa
 	if(!msg) {
 		return NULL;
 	}
+
 
 	msg_setRpcMk(msg, true);
 	//msg_setSmKeyCode(msg, mcode);
@@ -972,6 +1145,15 @@ ICACHE_FLASH_ATTR  BOOL msg_isForce2Json(jm_msg_t *msg) {
 ICACHE_FLASH_ATTR  void msg_setForce2Json(jm_msg_t *msg, BOOL f) {
 	msg->flag = msg_set_s16(f,msg->flag,FLAG_FORCE_RESP_JSON);
 }
+
+ICACHE_FLASH_ATTR  void msg_setDev(jm_msg_t *msg, BOOL f) {
+	msg->flag = msg_set_s16(f,msg->flag,FLAG_DEV);
+}
+
+ICACHE_FLASH_ATTR  BOOL msg_isDev(jm_msg_t *msg) {
+	return msg_is_s16(msg->flag, FLAG_DEV);
+}
+
 
 ICACHE_FLASH_ATTR  BOOL msg_isNeedResponse(jm_msg_t *msg) {
 	sint8_t rt = msg_getRespType(msg);

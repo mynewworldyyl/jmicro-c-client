@@ -1,6 +1,8 @@
 #ifndef USER_DEBUG_H_
 #define USER_DEBUG_H_
 
+#define NULL 0
+
 #if defined(GLOBAL_DEBUG_ON)
 #define MQTT_DEBUG_ON
 #endif

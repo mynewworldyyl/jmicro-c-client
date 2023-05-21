@@ -9,7 +9,7 @@
 #include "test.h"
 
 extern BOOL client_recv_one_loop();
-extern void client_ws_init();
+extern void client_jmConnCheck();
 
 uint8_t client_rpc_callback(byte_buffer_t *payload, void *arg){
 	printf("RPC Response: ");
@@ -27,7 +27,7 @@ int test_jm_client_rpc()
 {
 	setbuf(stdout,NULL);
 
-	client_ws_init();
+	client_jmConnCheck();
 
 	client_init("test00","1",true);
 
@@ -43,7 +43,7 @@ int test_jm_client_rpc()
 		//client_invoke_rpc(-655376287, payload, (client_rpc_callback_fn*)client_rpc_callback);
 
 		char *serType = "netty";
-		msg_extra_data_t* args = extra_strKeyPut(NULL, serType, PREFIX_TYPE_STRINGG);
+		msg_extra_data_t* args = extra_sget(NULL, serType);
 		args->value.bytesVal = serType;
 		args->len = os_strlen(serType);
 

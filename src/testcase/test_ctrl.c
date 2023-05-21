@@ -3,15 +3,17 @@
 #include <unistd.h>
 #include <string.h>
 
-#include "../jm_client.h"
-#include "../jm_buffer.h"
-#include "../debug.h"
-#include "../jm_mem.h"
+#include "jm_client.h"
+#include "jm_mem.h"
 
-#include "./test.h"
+#include "test.h"
 
+#include<pthread.h>
+//#include<Windows.h>
+#pragma comment(lib, "pthreadVC2.lib")  //必须加上这句
+
+extern void test_jm_client_pubsub(void* Param);
 extern BOOL udp_client_recv_one_loop();
-
 extern void udp_client_ws_init();
 
 static uint8_t test_onPubsubItemType1Listener(jm_pubsub_item_t *it) {
@@ -52,24 +54,33 @@ static uint8_t test_onPubsubItemType1Listener(jm_pubsub_item_t *it) {
 
 	cache_back(CACHE_PUBSUB_ITEM,item);
 
-
 	return JM_SUCCESS;
 }
 
+int create_tcpclient_thread() {
+     pthread_t pid;
+     pthread_create(&pid, NULL, test_jm_client_pubsub,NULL);
+     return 1;
+}
 
-int test_udp_jm_client_pubsub() {
+int test_ctrl_jm()
+{
 	INFO("test_udp_jm_client_pubsub starting\n");
+
+	create_tcpclient_thread();
 
 	//client_init("test00","1",false);
 
 	udp_client_ws_init();
 
-	if(client_subscribeP2PByType(test_onPubsubItemType1Listener,-128)) {
+	jm_ctrl_init();
+
+	/*if(client_subscribeP2PByType(test_onPubsubItemType1Listener,-128)) {
 		printf("test_jmLoginListener1注册成功\n");
 	} else {
 		printf("test_jmLoginListener1注册失败\n");
 	}
-
+*/
 	while(1) {
 		//sleep(1);
 		//printf("One loop: ");

@@ -12,7 +12,7 @@
 
 extern BOOL client_recv_one_loop();
 
-extern void client_ws_init();
+extern void client_jmConnCheck();
 
 static uint8_t test_onPubsubItemType2Listener(jm_pubsub_item_t *item) {
 	printf("test_onPubsubItemType2Listener: data= %s, fr= %d, type= %d \n",item->data, item->fr, item->type);
@@ -53,21 +53,26 @@ static uint8_t test_onPubsubItemType3Listener(jm_pubsub_item_t *item) {
 static void test_jmLoginListener(sint32_t code, char *msg, char *loginKey, sint32_t actId) {
 	printf("Listener1 got login result: %s, %s, %d, %d\n",loginKey,msg,code,actId);
 
-	printf("test_jmLoginListener �����첽��Ϣ begin \n");
-
-	if(client_subscribeByType(test_onPubsubItemType1Listener,1)) {
-		printf("test_jmLoginListener1 �����첽��Ϣ�ɹ�  \n");
-	} else {
-		printf("test_jmLoginListener1 �����첽��Ϣʧ��  \n");
+	if(!client_isLogin()) {
+		INFO("test_jmLoginListener1 login fail not regist ps listener\n");
+		return;
 	}
 
-	if(client_subscribeByType(test_onPubsubItemType2Listener,2)) {
+	printf("test_jmLoginListener �����첽��Ϣ begin \n");
+
+	if(client_isLogin() && client_subscribeByType(test_onPubsubItemType1Listener,1,true)) {
+		printf("test_jmLoginListener1 �����첽��Ϣ�ɹ�  \n");
+	} else {
+		printf("test_jmLoginListener1 login fail not regist ps listener test_onPubsubItemType1Listener\n");
+	}
+
+	if(client_subscribeByType(test_onPubsubItemType2Listener,2,true)) {
 		printf("test_jmLoginListener2 �����첽��Ϣ�ɹ�  \n");
 	} else {
 		printf("test_jmLoginListener2 �����첽��Ϣʧ��  \n");
 	}
 
-	if(client_subscribeByType(test_onPubsubItemType3Listener,3)) {
+	if(client_subscribeByType(test_onPubsubItemType3Listener,-128,true)) {
 		printf("test_jmLoginListener3 �����첽��Ϣ�ɹ�  \n");
 	} else {
 		printf("test_jmLoginListener3 �����첽��Ϣʧ��  \n");
@@ -142,11 +147,11 @@ ICACHE_FLASH_ATTR client_send_msg_result_t test_publishExtraDataItem(char *topic
 	item->type = 0;
 	item->topic = topic;
 
-	msg_extra_data_t *header = extra_strKeyPut(NULL, "psItemExtraData0", PREFIX_TYPE_BYTE);
+	msg_extra_data_t *header = extra_sget(NULL, "psItemExtraData0");
 	header->value.s8Val = 33;
 
 	char *pstr = "hello ps extra data";
-	msg_extra_data_t *extraData = extra_strKeyPut(header, "psItemExtraData1", PREFIX_TYPE_STRINGG);
+	msg_extra_data_t *extraData = extra_sget(header, "psItemExtraData1");
 	extraData->value.bytesVal = pstr;
 	extraData->len = strlen(pstr);
 	extraData->neddFreeBytes = false;
@@ -231,13 +236,11 @@ static void test_jmLoginListener3(sint32_t code, char *msg, char *loginKey, sint
 
 
 
-int test_jm_client_pubsub()
+void test_jm_client_pubsub(void* Param)
 {
 	INFO("test_jm_client_pubsub starting");
 
-
-
-	client_ws_init();
+	client_jmConnCheck();
 	client_init("test00","1",true);
 
 	client_registLoginListener(test_jmLoginListener);
@@ -246,9 +249,10 @@ int test_jm_client_pubsub()
 
 	while(1) {
 		//sleep(1);
-		//printf("One loop: ");
+		printf("One loop: ");
 		if(!client_recv_one_loop()) {
-			//printf("client_recv_one_loop:fail\n");
+			printf("client_recv_one_loop:fail\n");
+			sleep(2);
 		}
 	}
 }

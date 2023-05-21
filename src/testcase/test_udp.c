@@ -4,6 +4,8 @@
 #include "../jm_msg.h"
 #include "test.h"
 
+#define UDP_PORT 9091
+
 static int client_socket = 0;
 static struct sockaddr_in *remote;
 
@@ -55,7 +57,14 @@ client_send_msg_result_t udp_client_ws_send_msg(byte_buffer_t *buf, char* host, 
 	return JM_SUCCESS;
 }
 
+BOOL jm_checkLocalServer(){
+	return true;
+}
+
+
 BOOL udp_client_recv_one_loop() {
+
+	if(client_socket == NULL) return false;
 
 	//接收数据
 	//char buf[1024];
@@ -68,7 +77,7 @@ BOOL udp_client_recv_one_loop() {
 		return FALSE;
 	}
 
-	INFO("receive from: %s, port:%d", inet_ntoa(clientAddr.sin_addr), clientAddr.sin_port);
+	INFO("receive from: %s, port:%d\n", inet_ntoa(clientAddr.sin_addr), ntohs(clientAddr.sin_port));
 
 	//printChars(buf,tmpres);
 	if(!bb_put_chars(readBuf,buf,tmpres)){
@@ -86,7 +95,7 @@ BOOL udp_client_recv_one_loop() {
 		}
 
 		//远程UDP客户端和端口，用于响应信息
-		msg->extraMap = extra_putInt(msg->extraMap, EXTRA_KEY_UDP_PORT, clientAddr.sin_port);
+		msg->extraMap = extra_putInt(msg->extraMap, EXTRA_KEY_UDP_PORT, ntohs(clientAddr.sin_port));
 		char *p = inet_ntoa(clientAddr.sin_addr);
 		msg->extraMap = extra_putChars(msg->extraMap, EXTRA_KEY_UDP_HOST, p, strlen(p));
 		msg->extraMap = extra_putBool(msg->extraMap,EXTRA_KEY_UDP_ACK,TRUE);
@@ -110,9 +119,18 @@ BOOL udp_client_recv_one_loop() {
 
 }
 
+void upd_doLoop() {
+	while(1) {
+		if(!udp_client_recv_one_loop()) {
+			INFO("upd_doLoop fail\n");
+			sleep(2);
+		}
+	}
+}
+
 int udp_client_ws_init() {
 
-	printf("client_ws_init udp Socket client init\n");
+	printf("udp_client_ws_init udp Socket client init\n");
 
 	WSADATA wsaData;
 	WSAStartup(MAKEWORD(2, 2), &wsaData);
@@ -127,7 +145,7 @@ int udp_client_ws_init() {
 
 	struct sockaddr_in addr;
 	addr.sin_family = AF_INET;
-	addr.sin_port = htons(9092);
+	addr.sin_port = htons(UDP_PORT);
 	addr.sin_addr.S_un.S_addr = INADDR_ANY;
 
 	//绑定套接字到一个本地地址
