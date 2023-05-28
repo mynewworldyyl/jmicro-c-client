@@ -60,7 +60,14 @@ static ps_listener_map *ps_listener = NULL;
 
 static sint32_t msgId = 0;
 
+static uint16_t jmPort = 0;
+static char *jmHost = NULL;
+static uint8_t useUdp = NULL;
+static uint8_t hostLen = 0;
+
 const static char *TOPIC_PREFIX = "/__act/dev/";
+
+static client_getSystemTime_fn client_getSystemTime;
 
 //const static char *MSG_TYPE = "__msgType";
 //static char *DEVICE_ID = "/testdevice001";
@@ -70,6 +77,11 @@ static sint8_t llCnt = 0;//当前登录监听器数量
 static client_login_listener_fn loginLises[LLSIZE]={NULL};//登录监听器数组
 
 static BOOL inited = 0;
+
+static uint64_t lastSendHearbeatTime=0;
+static uint64_t lastActiveTime=0; //最后一次连接JM平台时间，用于发送心跳包
+
+static uint64_t lastLoginTime=0; //最后一次登录时间
 static char *loginKey = NULL;
 static sint32_t actId = 0;//设备关联账号
 static char *deviceId = NULL;//当前登录设备ID
@@ -97,32 +109,85 @@ ICACHE_FLASH_ATTR timer_check* client_getCheck() {
 	return &check;
 }
 
-ICACHE_FLASH_ATTR BOOL client_main_timer() {
+ICACHE_FLASH_ATTR void client_setSysTimeFn(client_getSystemTime_fn sfn) {
+	 client_getSystemTime = sfn;
+}
+
+ICACHE_FLASH_ATTR void client_setJmInfo(char *jmh, uint16_t port, uint8_t udp) {
+	useUdp = udp;
+	jmPort = port;
+	jmHost = jmh;
+	hostLen = os_strlen(jmh);
+}
+
+ICACHE_FLASH_ATTR void _c_hearbeetResult() {
+	INFO("_c_hearbeetResult result!\n");//获取心跳结果
+}
+
+ICACHE_FLASH_ATTR void _c_sendHearbeet() {
+	uint64_t cur = client_getSystemTime();
+	if((cur - lastSendHearbeatTime) < JM_HEARBEET_INTERVAL) return;
+	if((cur - lastActiveTime) < JM_HEARBEET_INTERVAL) return;//最后一次活动时间小于30秒，不需要发心跳
+	INFO("_c_sendHearbeet send hearbeet!\n");
+	lastSendHearbeatTime = client_getSystemTime();
+	client_invokeRpc(885612323,NULL,_c_hearbeetResult,NULL);
+}
+
+ICACHE_FLASH_ATTR BOOL client_main_timer(void *arg) {
+	INFO("client_main_timer start\n");
 	timer_check* checker = client_getCheck();
 
-	if(!checker->jm_checkNet()) {
-		//网络不可用
-		INFO("jm_main_timer jm_checkNet fail!\n");
-		//os_sleep(2);
-	}
-
-	if(!checker->jm_checkLocalServer()) {
-		//本地服务失败
-		INFO("jm_main_timer jm_checkLocalServer fail!\n");
-		//sleep(2);
-	}
-
-	if(checker->jm_checkConCheck()) {
-		if(!checker->jm_checkLoginStatus()) {
-			//账号登录验证失败
-			INFO("jm_main_timer jm_checkLoginStatus fail!\n");
+	if(checker->jm_checkNet) {
+		if(!checker->jm_checkNet()) {
+			//网络不可用
+			INFO("jm_main_timer jm_checkNet fail!\n");
+			return false;
 		}
-	}else {
-		//JM平台连接服务失败
-		INFO("jm_main_timer jm_checkConCheck fail!\n");
-		//sleep(2);
+	} else {
+		INFO("jm_main_timer jm_checkNet not set!\n");
+		return false;
 	}
 
+	if(useUdp) {
+		//UDP连接JM平台
+		if(checker->jm_checkLocalServer) {
+			//本地服务失败
+			if(!checker->jm_checkLocalServer()) {
+				INFO("jm_main_timer jm_checkLocalServer fail!\n");
+				return false;
+			}
+
+			INFO("jm_main_timer check login begin!\n");
+			if(!checker->jm_checkLoginStatus()) {
+				//账号登录验证失败
+				INFO("jm_main_timer jm_checkLoginStatus fail!\n");
+				return false;
+			}
+		} else {
+			INFO("jm_main_timer jm_checkLocalServer is NULL!\n");
+			return false;
+		}
+	} else {
+		//TCP连接JM平台
+		if(checker->jm_checkConCheck && checker->jm_checkConCheck()) {
+			//网络连接成功才做登录校验
+			INFO("jm_main_timer check login begin!\n");
+			if(!checker->jm_checkLoginStatus()) {
+				//账号登录验证失败
+				INFO("jm_main_timer jm_checkLoginStatus fail!\n");
+			} /*else {
+				INFO("jm_main_timer check login success!\n");
+			}*/
+		}else {
+			//JM平台连接服务失败
+			INFO("jm_main_timer jm_checkConCheck fail!\n");
+		}
+	}
+
+	 _c_sendHearbeet();
+
+	INFO("client_main_timer end\n");
+	return true;
 }
 
 ICACHE_FLASH_ATTR BOOL client_isLogin(){
@@ -186,12 +251,40 @@ static ICACHE_FLASH_ATTR void _c_rebackRpcWaitRorResponse(client_msg_result_t *m
 	m->cbArg = NULL;
 }
 
-static ICACHE_FLASH_ATTR uint8_t _c_loginResult(byte_buffer_t *buf, void *arg){
+static ICACHE_FLASH_ATTR uint8_t _c_loginResult(msg_extra_data_t *resultMap, sint32_t code, char *errMsg, void *arg){
 
-	msg_extra_data_t *resultMap = extra_decode(buf);
-	if(!resultMap) {
-		INFO("_c_loginResult got NULL result!");
-		return MEMORY_OUTOF_RANGE;
+	if(loginMsg) {
+		os_free(loginMsg);
+		loginMsg = NULL;
+	}
+	loginCode = 0;
+
+	//msg_extra_data_t *resultMap = extra_decode(buf);
+	if(code != 0) {
+		loginCode = code;
+
+		if(errMsg) {
+			int len = os_strlen(errMsg)+1;
+			char *cp = os_zalloc(len);
+			memcpy(cp,errMsg,len);
+			cp[len] = '\0';
+			loginMsg = cp;
+		}
+		INFO("_c_loginResult error code:%d, msg:%s!",code, loginMsg);
+		return loginCode;
+	}
+
+	if(resultMap == NULL) {
+		loginCode = HANDLE_MSG_FAIL;
+
+		errMsg = "got invalid login NULL result";
+		int len = os_strlen(errMsg)+1;
+		char *cp = os_zalloc(len);
+		memcpy(cp,errMsg,len);
+		cp[len] = '\0';
+
+		INFO("_c_loginResult %s!",loginMsg);
+		return loginCode;
 	}
 
 	//RespJRso.data
@@ -204,38 +297,18 @@ static ICACHE_FLASH_ATTR uint8_t _c_loginResult(byte_buffer_t *buf, void *arg){
 	//Map<String,Object>
 	msg_extra_data_t *respDataEx = (msg_extra_data_t *)respDataEx1->value.bytesVal;
 
-	msg_extra_data_t *codeEx = extra_sget(respDataEx1,"code");
-	if(codeEx)
-		loginCode = codeEx->value.s32Val;
-
-	if(loginCode != 0) {
-		//有错误
-		msg_extra_data_t *msgEx = extra_sget(respDataEx1,"msg");
-		if(msgEx) {
-			int len = os_strlen(msgEx->value.bytesVal)+1;
-			char *cp = os_zalloc(len);
-			memcpy(cp,msgEx->value.bytesVal,len);
-			cp[len] = '\0';
-			loginMsg = cp;
-		}
-	} else {
-		//无错误
-		msg_extra_data_t *loginKeyEx = extra_sget(respDataEx,"loginKey");
-		if(loginKeyEx) {
-			loginKey = loginKeyEx->value.bytesVal;
-			int len = os_strlen(loginKey)+1;
-			char *cp = os_zalloc(len);
-			memcpy(cp,loginKey,len);
-			cp[len] = '\0';
-			loginKey = cp;
-		}
-
-		clientId = extra_sgetS32(respDataEx,"clientId");
-		//actId = extra_sgetS32(respDataEx,"actId");
-
+	msg_extra_data_t *loginKeyEx = extra_sget(respDataEx,"loginKey");
+	if(loginKeyEx) {
+		loginKey = loginKeyEx->value.bytesVal;
+		int len = os_strlen(loginKey)+1;
+		char *cp = os_zalloc(len);
+		memcpy(cp,loginKey,len);
+		cp[len] = '\0';
+		loginKey = cp;
 	}
 
-	extra_release(resultMap);
+	clientId = extra_sgetS32(respDataEx,"clientId");
+	//actId = extra_sgetS32(respDataEx,"actId");
 
 	INFO("_c_loginResult code:%d, msg:%s, loginKey:%s\n", loginCode, loginMsg, loginKey);
 
@@ -252,70 +325,6 @@ static ICACHE_FLASH_ATTR uint8_t _c_loginResult(byte_buffer_t *buf, void *arg){
 
 	return JM_SUCCESS;
 }
-
-/*static ICACHE_FLASH_ATTR uint8_t _c_loginResult(byte_buffer_t *buf, void *arg){
-
-	msg_extra_data_t *resultMap = extra_decode(buf);
-	if(!resultMap) {
-		INFO("_c_loginResult got NULL result!");
-		return MEMORY_OUTOF_RANGE;
-	}
-
-	//RespJRso.data
-	msg_extra_data_t *respDataEx1 = extra_sget(resultMap,"data");
-	if(respDataEx1 == NULL) {
-		INFO("_c_loginResult Invalid data response!");
-		return INVALID_RESP_DATA;
-	}
-
-	//Map<String,Object>
-	msg_extra_data_t *respDataEx = (msg_extra_data_t *)respDataEx1->value.bytesVal;
-
-
-	msg_extra_data_t *codeEx = extra_sget(respDataEx,"code");
-	if(codeEx)
-		loginCode = codeEx->value.s32Val;
-
-	msg_extra_data_t *actIdEx = extra_sget(respDataEx,"actId");
-	if(actIdEx)
-		actId = actIdEx->value.s32Val;
-
-	if(loginCode != 0) {
-		//有错误
-		msg_extra_data_t *msgEx = extra_sget(respDataEx,"msg");
-		if(msgEx) {
-			int len = os_strlen(msgEx->value.bytesVal)+1;
-			char *cp = os_zalloc(len);
-			memcpy(cp,msgEx->value.bytesVal,len);
-			cp[len] = '\0';
-			loginMsg = cp;
-		}
-	} else {
-		//无错误
-		msg_extra_data_t *loginKeyEx = extra_sget(respDataEx,"data");
-		if(loginKeyEx) {
-			loginKey = loginKeyEx->value.bytesVal;
-			int len = os_strlen(loginKey)+1;
-			char *cp = os_zalloc(len);
-			memcpy(cp,loginKey,len);
-			cp[len] = '\0';
-			loginKey = cp;
-		}
-	}
-
-	extra_release(resultMap);
-
-	INFO("_c_loginResult code:%d, msg:%s, loginKey:%s\n", loginCode, loginMsg, loginKey);
-
-	if(llCnt > 0) {
-		for(int i = 0; i< LLSIZE; i++) {
-			if(loginLises[i] != NULL)
-				loginLises[i](loginCode,loginMsg,loginKey,actId);
-		}
-	}
-
-	return JM_SUCCESS;
-}*/
 
 ICACHE_FLASH_ATTR BOOL client_registLoginListener(client_login_listener_fn fn){
 	if(llCnt == LLSIZE) return false;
@@ -356,6 +365,16 @@ ICACHE_FLASH_ATTR client_send_msg_result_t client_login(sint32_t aid, char *did)
 
 	if(client_isLogin()) return JM_SUCCESS;//已经登录
 
+	uint64_t cur = client_getSystemTime();
+
+	if(lastLoginTime != 0 && (cur - lastLoginTime) < 30000) {
+		//最多30秒后重新请求登录
+		INFO("client_login interval %d, BUSSY\n", (cur - lastLoginTime));
+		return BUSSY;
+	}
+
+	lastLoginTime = cur;
+
 	if(aid <= 0) {
 		INFO("client_login invalid account id %d\n", aid);
 		return SEND_INVALID_ACCOUNT;
@@ -371,22 +390,29 @@ ICACHE_FLASH_ATTR client_send_msg_result_t client_login(sint32_t aid, char *did)
 
 	INFO("client_login send login request u=%d, deviceId=%s\n",actId, deviceId);
 
-	msg_extra_data_t* header = extra_sputS32(NULL, "actId", actId,-1);
-	extra_sputStr(header, "deviceId", deviceId);
+	msg_extra_data_t *rpcPsList = extra_sput(NULL, "rpcPsList", PREFIX_TYPE_LIST);
+
+/*	msg_extra_data_t *psObj1 = extra_sput(NULL, "psObj1", PREFIX_TYPE_MAP);
+	rpcPsList->value->bytesVal = psObj1;*/
+
+	msg_extra_data_t* psObj1 = extra_sputS32(NULL, "actId", actId,-1);
+	rpcPsList->value.bytesVal = psObj1;
+
+	extra_sputStr(psObj1, "deviceId", deviceId,-1);
 
 	//client_send_msg_result_t rst = client_invokeRpc(-1678356186, header, _c_loginResult, NULL);
 	//deviceLogin
-	client_send_msg_result_t rst = client_invokeRpc(-1239310325, header, _c_loginResult, NULL);
+	sint64_t msgId = client_invokeRpc(-1239310325, rpcPsList, _c_loginResult, NULL);
 
-	extra_release(header);
+	extra_release(rpcPsList);
 
-	if(rst != JM_SUCCESS) {
-		INFO("client_login send login request error %d \n",rst);
+	if(msgId < 0) {
+		INFO("client_login send login request error %d \n",msgId);
+		return msgId;
+	}else {
+		INFO("client_login send login request end\n");
+		return msgId;
 	}
-
-	INFO("client_login send login request end\n");
-
-	return rst;
 
 }
 
@@ -395,7 +421,7 @@ ICACHE_FLASH_ATTR client_send_msg_result_t _c_client_login(/*sint32_t actId, cha
 }
 
 ICACHE_FLASH_ATTR client_send_msg_result_t client_logout(){
-	loginCode = 0;
+	loginCode = LOGOUT;
 	loginKey = NULL;
 	actId = 0;
 	clientId = 0;
@@ -445,48 +471,68 @@ ICACHE_FLASH_ATTR BOOL client_registP2PMessageSender(client_p2p_msg_sender_fn se
 	}
 }
 
-
 ICACHE_FLASH_ATTR client_send_msg_result_t client_sendMessage(jm_msg_t *msg){
 
-	if(msg_sender == NULL && !msg_isUdp(msg)) {
-		INFO("client_sendMessage sender is NULL\n");
-		return SOCKET_SENDER_NULL;
-	}else if(msg_p2p_sender == NULL && msg_isUdp(msg)) {
-		INFO("client_sendMessage msg_p2p_sender is NULL\n");
-		return SOCKET_SENDER_NULL;
+	msg_extra_data_t* eh = extra_get(msg->extraMap, EXTRA_KEY_UDP_HOST);
+	uint32_t port = extra_getS32(msg->extraMap, EXTRA_KEY_UDP_PORT);
+
+	//eh != NULL 设备与设备间的消息
+	//useUdp JM平台指定消息
+	if(eh != NULL || useUdp) {
+		if(msg_p2p_sender == NULL && msg_isUdp(msg)) {
+			INFO("client_sendMessage udp sender is NULL\n");
+			return SOCKET_SENDER_NULL;
+		}
+		msg_setUdp(msg, useUdp);//通过UDP发送到JM平台或设备
+	} else {
+		if(msg_sender == NULL) {
+			INFO("client_sendMessage tcp sender is NULL\n");
+			return SOCKET_SENDER_NULL;
+		}
+		msg_setUdp(msg,false);//TCP发送JM平台
 	}
 
-	if(loginKey && !msg_isUdp(msg)) {
+	if(eh == NULL && loginKey != NULL) {
+		//平台消息
 		msg->extraMap = extra_putChars(msg->extraMap, EXTRA_KEY_LOGIN_KEY, loginKey, os_strlen(loginKey));
 	}
 
-	if(!msg_encode(msg,sendBuf)) {
+	if(!msg_encode(msg, sendBuf)) {
 		bb_reset(sendBuf);
 		INFO("client_sendMessage encode msg fail\n");
 		return ENCODE_MSG_FAIL;
 	}
 
-	if(msg_isUdp(msg)) {
-		if(msg_p2p_sender) {
-			msg_extra_data_t* eh = extra_get(msg->extraMap, EXTRA_KEY_UDP_HOST);
-			uint32_t port = extra_getS32(msg->extraMap, EXTRA_KEY_UDP_PORT);
-			return msg_p2p_sender(sendBuf,eh->value.bytesVal, port,eh->len);
-		} else {
-			INFO("client_sendMessage UDP connection not ready!\n");
-		}
+	/******************DUMP SEND DATA BEGIN*********************/
+	/*bb_rmark(sendBuf);
+	int len = bb_readable_len(sendBuf);
+	while(bb_readable_len(sendBuf)> 0) {
+		uint8_t d;
+		bb_get_u8(sendBuf,&d);
+		INFO("%x,",d);
+	}
+	INFO("\nlen: %d\n",len);
+	bb_rmark_reset(sendBuf);*/
+	/******************DUMP SEND DATA END*********************/
 
+	if(eh != NULL) {
+		INFO("client_sendMessage udp return phone msg\n");
+		return msg_p2p_sender(sendBuf, eh->value.bytesVal, port, eh->len);
+	} else if(useUdp){
+		INFO("client_sendMessage udp send JM server msg\n");
+		//没有指定主机IP，说明是主动发送的请求，发往JM平台
+		return msg_p2p_sender(sendBuf, jmHost, jmPort, hostLen);
 	} else {
-		if(msg_sender)
-			return msg_sender(sendBuf);
-		else {
-			INFO("client_sendMessage tcp connect not ready!\n");
-		}
+		INFO("client_sendMessage tcp send JM server msg\n");
+		//TCP发送
+		return msg_sender(sendBuf);
 	}
 
 }
 
 ICACHE_FLASH_ATTR client_send_msg_result_t client_onMessage(jm_msg_t *msg){
 
+	lastActiveTime = client_getSystemTime(); //更新与服务器交互的最后活动时间
 	INFO("client_onMessage got one msg type: %d\n",msg->type);
 	CHRI *h = _c_GetMsgHandler(msg->type);
 	if(h == NULL) {
@@ -520,16 +566,18 @@ ICACHE_FLASH_ATTR BOOL client_registMessageHandler(client_msg_hander_fn hdl, sin
 
 }
 
-ICACHE_FLASH_ATTR client_send_msg_result_t client_invokeRpc(sint32_t mcode, msg_extra_data_t *params,
+ICACHE_FLASH_ATTR sint64_t client_invokeRpc(sint32_t mcode, msg_extra_data_t *params,
 		client_rpc_callback_fn callback, void *cbArgs){
 
 	byte_buffer_t *paramBuf = NULL;
 	if(params) {
-		paramBuf = bb_create(32);
-		if(!extra_encodeRpcReqParams(params,paramBuf)) {
+		paramBuf = bb_create(128);
+		INFO("client_invokeRpc encode RPC params begin\n");
+		if(!client_encodeExtra(paramBuf, params, params->type)) {
 			INFO("client_invokeRpc encode params failure\n");
 			return MEMORY_OUTOF_RANGE;
 		}
+		INFO("client_invokeRpc encode RPC params end\n");
 	}
 
 	jm_msg_t *msg = msg_create_rpc_msg(mcode, paramBuf);
@@ -575,7 +623,7 @@ ICACHE_FLASH_ATTR client_send_msg_result_t client_invokeRpc(sint32_t mcode, msg_
 	sint64_t msgId = msg->msgId;
 	msg->payload = NULL;
 	msg_release(msg);
-	INFO("client_invokeRpc send msg success msgId \n", msgId);
+	INFO("client_invokeRpc send msg success msgId %d \n", msgId);
 	return msgId;
 }
 
@@ -594,18 +642,118 @@ static ICACHE_FLASH_ATTR CHRI* _c_GetMsgHandler(sint8_t type){
 	return NULL;
 }
 
+static ICACHE_FLASH_ATTR void* _c_parseRpcPayload(jm_msg_t *msg, sint32_t *code, char **errMsg) {
+
+	INFO("_c_parseRpcPayload begin code: %d\n", *code);
+
+	if(msg->type != MSG_TYPE_RRESP_JRPC) {
+		*code = 1;
+		char *err = os_zalloc(25);//接收者需要释放这个内存
+		os_sprintf(err,"Not RPC message type: %d\n", msg->type);
+		*errMsg = err;
+		INFO(*errMsg);
+		return NULL;
+	}
+
+	//INFO("_c_parseRpcPayload 1\n");
+
+	sint8_t pro = msg_getDownProtocol(msg);
+
+	//PROTOCOL_BIN和JSON数据由接收者处理
+	//if(pro == PROTOCOL_BIN || pro == PROTOCOL_JSON || pro == PROTOCOL_RAW) return msg->payload;
+	if(pro != PROTOCOL_EXTRA){
+		INFO("_c_parseRpcPayload pro: %d\n",pro);
+		 return msg->payload;//平台只处理PROTOCOL_EXTRA解码，其他由接收者处理
+	}
+
+	if(msg->payload == NULL) {
+		INFO("_c_parseRpcPayload got NULL msg payload!");
+		return NULL;
+	}
+
+	//INFO("_c_parseRpcPayload 2\n");
+
+	msg_extra_data_t *resultMap = client_decodeExtra(msg->payload);
+
+	if(resultMap->type == PREFIX_TYPE_PROXY
+			|| resultMap->type == PREFIX_TYPE_MAP
+			|| resultMap->type == PREFIX_TYPE_SET
+			|| resultMap->type == PREFIX_TYPE_LIST) {
+		msg_extra_data_t *rm  = resultMap->value.bytesVal;
+		resultMap->value.bytesVal = NULL;
+		resultMap->neddFreeBytes = false;
+		extra_release(resultMap);
+		resultMap = rm;
+	}
+
+	//INFO("_c_parseRpcPayload 3\n");
+
+	if(resultMap == NULL) {
+		*code = 2;
+		char *err = os_zalloc(25);//接收者需要释放这个内存
+		os_sprintf(err,"Null result %d\n",msg->msgId);
+		*errMsg = err;
+		INFO(*errMsg);
+		return NULL;
+	}
+
+	//INFO("_c_parseRpcPayload 4\n");
+
+	if(msg_isError(msg)) {
+		//RespJRso.data
+		INFO("_c_parseRpcPayload Error msg msgId:%d!\n", msg->msgId);
+		*code = extra_sgetS32(resultMap,"code");
+
+		msg_extra_data_t *emStr = extra_sget(resultMap,"msg");
+		if(emStr) {
+			emStr->neddFreeBytes = false;//保证系统不自动释放字符串内存
+			*errMsg = emStr->value.bytesVal;
+			INFO(*errMsg);
+		}
+		extra_release(resultMap);
+		return NULL;
+	}
+
+	INFO("_c_parseRpcPayload 5\n");
+
+	*code = 0;
+	*errMsg = NULL;
+	//msg_extra_data_t* data = extra_sget(resultMap,"data");
+
+	INFO("_c_parseRpcPayload end code: %d\n", *code);
+	return resultMap;
+
+}
+
 static ICACHE_FLASH_ATTR client_send_msg_result_t _c_rpcMsgHandle(jm_msg_t *msg){
 	INFO("_c_rpcMsgHandle got rpc msgId: %d \n",msg->msgId);
 	client_msg_result_t * wait = _c_GetRpcWaitForResponse(msg->msgId);
 	if(wait == NULL) {
-		INFO("_c_rpcMsgHandle not wait for msgID:% \n",msg->msgId);
+		INFO("_c_rpcMsgHandle not wait for msgId:% \n",msg->msgId);
 		msg_release(msg);
 		return MSG_WAIT_NOT_FOUND;
 	}
 
-	INFO("_c_rpcMsgHandle notify caller: %d\n",msg->msgId);
-	//
-	wait->callback(msg->payload, wait->cbArg);
+	INFO("_c_rpcMsgHandle notify caller msgId: %d\n",msg->msgId);
+
+	sint32_t code = 0;
+	char *p = NULL;
+
+	void *rst = _c_parseRpcPayload(msg, &code, &p);
+	if(code != 0) {
+		INFO("Go error result, code:%d, err: %s\n", code, p);
+	}
+
+	wait->callback(rst, code, p, wait->cbArg);
+
+	if(rst!= NULL && msg_getDownProtocol(msg) == PROTOCOL_EXTRA) {
+		extra_release(rst);
+	}
+
+	if(p) {
+		os_free(p);
+	}
+
 	//msg_release(msg);
 	INFO("_c_rpcMsgHandle notify caller finish: %d\n",msg->msgId);
 
@@ -691,7 +839,7 @@ static ICACHE_FLASH_ATTR client_send_msg_result_t _c_pubsubOpMsgHandle(jm_msg_t 
 	INFO("_c_pubsubOpMsgHandle opCode:%d \n",code);
 
 	if(code == MSG_OP_CODE_SUBSCRIBE) {
-		sint32_t subId = extra_getS8(msg->extraMap, EXTRA_KEY_EXT0);
+		sint32_t subId = extra_getS32(msg->extraMap, EXTRA_KEY_EXT0);
 		char *topic = extra_getChars(msg->extraMap, EXTRA_KEY_PS_ARGS);
 
 		ps_listener_map *m = _c_getPubsubListenerMap(topic);
@@ -755,7 +903,12 @@ ICACHE_FLASH_ATTR BOOL _c_doSubscribeTopic(ps_listener_map *m){
 	msg->extraMap = extra_putByte(msg->extraMap, EXTRA_KEY_PS_OP_CODE, MSG_OP_CODE_SUBSCRIBE);
 	msg->extraMap = extra_putChars(msg->extraMap, EXTRA_KEY_PS_ARGS, m->topic, os_strlen( m->topic));
 	/*client_send_msg_result_t subRes = */
-	client_sendMessage(msg);
+
+	client_send_msg_result_t resultCode = client_sendMessage(msg);
+	if(resultCode != JM_SUCCESS) {
+		INFO("ERROR: client_subscribe sub topic fail: %s, result code:%d \n", m->topic, resultCode);
+		return false;
+	}
 	/*if(!subRes) {
 		return false;
 	}*/
@@ -1378,7 +1531,7 @@ ICACHE_FLASH_ATTR client_send_msg_result_t client_publishPubsubItem(jm_pubsub_it
 	}
 
 	msg_setDownProtocol(msg, PROTOCOL_BIN);
-	msg_setUpProtocol(msg, PROTOCOL_BIN);
+	msg_setUpProtocol(msg, PROTOCOL_RAW);
 
 	msg->extraMap = extra_pullAll(extra, msg->extraMap);
 
@@ -1487,6 +1640,8 @@ ICACHE_FLASH_ATTR BOOL client_init(sint32_t aid, char *did) {
 		deviceId = did;
 	}
 
+	//check.jm_checkLoginStatus = client_login;
+
 	cache_init(CACHE_MESSAGE, sizeof(struct _jm_msg));
 	cache_init(CACHE_MESSAGE_EXTRA, sizeof(struct _msg_extra_data));
 
@@ -1501,7 +1656,7 @@ ICACHE_FLASH_ATTR BOOL client_init(sint32_t aid, char *did) {
 
 	//client_subscribeByType(test_onPubsubItemType1Listener,-128,false);
 
-	//#ifdef MQTT_DEBUG_ON
+	//#ifdef JMICRO_DEBUG_ON
 	//仅用于测试环境
 	//INFO("client_init regist login result listener\n");
 	client_registLoginListener(_c_subTopicAfterjmLogin);
@@ -1515,3 +1670,698 @@ ICACHE_FLASH_ATTR BOOL client_init(sint32_t aid, char *did) {
 	inited = 1;
 	return true;
 }
+
+
+/***********************************KEY VALUE BEGIN*******************************************/
+
+ICACHE_FLASH_ATTR BOOL _kv_getStrVal(uint8_t type, void *val, char *str) {
+
+	if(val == NULL) {
+		INFO("_kv_getStrVal NULL val\n");
+		return false;
+	}
+
+	if(type== PREFIX_TYPE_BYTE){
+		jm_itoa(*((sint8_t*)val), str);
+	}else if(type==PREFIX_TYPE_SHORTT) {
+		jm_itoa(*((sint16_t*)val), str);
+	}else if(type==PREFIX_TYPE_INT) {
+		jm_itoa(*((sint32_t*)val), str);
+	}else if(type==PREFIX_TYPE_LONG) {
+		jm_itoa(*((sint64_t*)val), str);
+	}/*else if(type==PREFIX_TYPE_STRINGG) {
+		vstr = (char*)val;
+	}*/else if(type==PREFIX_TYPE_BOOLEAN) {
+		if(jm_strcmp("0",val)) {
+			str[0] = '0';
+		}else {
+			str[0] = '1';
+		}
+		str[1] = '\0';
+	}else if(type==PREFIX_TYPE_CHAR) {
+		char *strp = (char*)val;
+		str[0] = *strp;
+		str[1] = '\0';
+	} else {
+		INFO("kv_add not support value type: %d!\n",type);
+		return false;
+	}
+
+	return true;
+}
+
+
+ICACHE_FLASH_ATTR BOOL kv_add(char *name, void *val, char *desc, sint8_t type, client_rpc_callback_fn cb) {
+	if(!client_isLogin()) {
+		INFO("kv_add device not login!\n");
+		return false;
+	}
+
+	if(name == NULL || os_strlen(name) == 0) {
+		INFO("kv_add kv name is NULL!\n");
+		return false;
+	}
+
+	msg_extra_data_t *kv = extra_sputStr(NULL,"name",name,-1);
+	if(kv == NULL) {
+		INFO("kv_add memory out!\n");
+		return false;
+	}
+
+	char *vstr;
+	//全部值传为字符串存储
+	char str[9];
+
+	if(type == PREFIX_TYPE_STRINGG) {
+		vstr = (char*)val;
+	} else if(_kv_getStrVal(type, val, str)) {
+		vstr = str;
+	} else {
+		INFO("kv_add not support value type: %d!\n",type);
+		return false;
+	}
+	extra_sputStr(kv, "value", vstr, -1);
+	extra_sputStr(kv, "desc", desc, -1);
+	extra_sputS8(kv, "type", type);
+	//extra_sputByType(kv, "value", val, type);
+
+	sint32_t msgId = client_invokeRpc(360214249, kv, cb, NULL);
+
+	if(msgId <= 0) {
+		INFO("kv_add save kv fail name=%\n",name);
+		return false;
+	}
+
+	return true;
+}
+
+ICACHE_FLASH_ATTR void _kv_getResult(
+		void *resultMap, sint32_t code, char *errMsg, void *arg
+/*msg_extra_data_t *rr, sint32_t code, char *errMsg, client_rpc_callback_fn cb*/) {
+
+	client_rpc_callback_fn cb = (client_rpc_callback_fn)arg;
+
+	if(code != 0) {
+		INFO("_kv_getResult get key fail with code:%d: err: %s!\n",code,errMsg);
+		cb(NULL, code, errMsg, NULL);
+		return;
+	}
+
+	msg_extra_data_t *rr = (msg_extra_data_t *)rr;
+
+	msg_extra_data_t *r = (msg_extra_data_t *)extra_sget(rr, "data")->value.bytesVal;
+
+	sint8_t type = extra_sgetS8(r,"type");
+	char* val = extra_sgetChars(r,"val");
+
+	if(val == NULL || os_strlen(val) == 0) {
+		cb(NULL, code, errMsg, NULL);
+		return;
+	}
+
+	msg_extra_data_t *v = extra_sput(NULL,"val", type);
+	extra_sputS8(v,"type", type);
+
+	if(type== PREFIX_TYPE_BYTE){
+		v->value.s8Val = (sint8_t)jm_atoi(val);
+	}else if(type==PREFIX_TYPE_SHORTT) {
+		v->value.s16Val = (sint16_t)jm_atoi(val);
+	}else if(type==PREFIX_TYPE_INT) {
+		v->value.s32Val = (sint32_t)jm_atoi(val);
+	}else if(type==PREFIX_TYPE_LONG) {
+		v->value.s64Val = (sint64_t)jm_atoi(val);
+	}else if(type==PREFIX_TYPE_STRINGG) {
+		v->value.bytesVal = (char*)val;
+	}else if(type==PREFIX_TYPE_BOOLEAN) {
+		v->value.boolVal = os_strcmp("1",val);
+	}else if(type==PREFIX_TYPE_CHAR) {
+		v->value.charVal = val[0];
+	} else {
+		INFO("_kv_getResult not support value type: %d!\n",type);
+		if(v) extra_release(v);
+		v = NULL;
+	}
+
+	cb(v, code, errMsg, NULL);
+	if(v) extra_release(v);
+}
+
+ICACHE_FLASH_ATTR BOOL kv_get(char *name, client_rpc_callback_fn cb) {
+	if(!client_isLogin()) {
+		INFO("kv_get device not login!\n");
+		return false;
+	}
+
+	if(name == NULL || os_strlen(name) == 0) {
+		INFO("kv_get kv name is NULL\n");
+		return false;
+	}
+
+	msg_extra_data_t *kv = extra_sputStr(NULL,"name",name,-1);
+	if(kv == NULL) {
+		INFO("kv_get memory out\n");
+		return false;
+	}
+
+	sint32_t msgId = client_invokeRpc(-1246466186, kv, _kv_getResult, cb);
+
+	if(msgId <= 0) {
+		INFO("kv_get get kv fail name=%\n",name);
+		return false;
+	}
+
+	return true;
+}
+
+ICACHE_FLASH_ATTR BOOL kv_update(char *name, char *desc, void *val, sint8_t type, client_rpc_callback_fn cb) {
+
+	if(!client_isLogin()) {
+		INFO("kv_update device not login!\n");
+		return false;
+	}
+
+	if(name == NULL || os_strlen(name) == 0) {
+		INFO("kv_update kv name is NULL!\n");
+		return false;
+	}
+
+	msg_extra_data_t *kv = extra_sputStr(NULL,"name",name,-1);
+	if(kv == NULL) {
+		INFO("kv_update memory out!\n");
+		return false;
+	}
+
+	char *vstr;
+	//全部值传为字符串存储
+	char str[9];
+
+	if(type == PREFIX_TYPE_STRINGG) {
+		vstr = (char*)val;
+	} else if(_kv_getStrVal(type, val, str)) {
+		vstr = str;
+	} else {
+		INFO("kv_update not support value type: %d!\n",type);
+		return false;
+	}
+
+	extra_sputStr(kv, "value", vstr, -1);
+	extra_sputStr(kv, "desc", desc, -1);
+
+	//extra_sputByType(kv, "value", val, type);
+	//extra_sputStr(kv,"deviceId",deviceId,-1);
+	//extra_sputS32(kv,"srcActId",actId);
+
+	sint32_t msgId = client_invokeRpc(247475691, kv, cb, NULL);
+
+	if(msgId <= 0) {
+		INFO("kv_add save kv fail name=%\n",name);
+		return false;
+	}
+
+	return true;
+}
+
+ICACHE_FLASH_ATTR BOOL kv_delete(char *name, client_rpc_callback_fn cb) {
+	if(!client_isLogin()) {
+		INFO("kv_delete device not login!\n");
+		return false;
+	}
+
+	if(name == NULL || os_strlen(name) == 0) {
+		INFO("kv_delete kv name is NULL\n");
+		return false;
+	}
+
+	msg_extra_data_t *kv = extra_sputStr(NULL,"name",name,-1);
+	if(kv == NULL) {
+		INFO("kv_delete memory out\n");
+		return false;
+	}
+
+	//extra_sputStr(kv,"deviceId",deviceId,-1);
+	//extra_sputS32(kv,"srcActId",actId);
+
+	sint32_t msgId = client_invokeRpc(1604442957, kv, cb, NULL);
+
+	if(msgId <= 0) {
+		INFO("kv_delete get kv fail name=%\n",name);
+		return false;
+	}
+
+	return true;
+}
+
+/***********************************KEY VALUE END*********************************************/
+
+
+/***********************************解码Extra数据开始*********************************************/
+ICACHE_FLASH_ATTR static uint16_t _c_encodeWriteLen(byte_buffer_t *b, msg_extra_data_t *extras);
+
+//decode
+ICACHE_FLASH_ATTR static BOOL _c_decodeMap(byte_buffer_t *b, msg_extra_data_t *m) {
+
+	m->len = 0;
+	uint16_t eleLen;//元素的个数,最多可以存放255个元素
+	if(!bb_get_u16(b, &eleLen)) {
+		INFO("decodeMap: read extra data length fail\r\n");
+		return false;
+	}
+
+	INFO("decodeMap: eleNum: %d\n",eleLen);
+
+	m->len = eleLen;
+	m->neddFreeBytes = true;
+
+	if(eleLen == 0) return true;//无元素
+
+	msg_extra_data_t  *tail = NULL;
+
+	while(eleLen-- > 0) {
+		sint8_t flag;
+		char *p =  bb_readString(b,&flag);
+		if(flag != JM_SUCCESS){
+			INFO("_c_pubsubItemParseBin fail to read keyType\n");
+			return false;
+		}
+
+		INFO("decodeMap: idx:%d, key: %s\n",eleLen,p);
+
+		msg_extra_data_t *v = client_decodeExtra(b);
+		if(v == NULL) {
+			continue;
+		}
+
+		v->strKey = p;
+
+		if(tail == NULL) {
+			m->value.bytesVal = v;
+		} else {
+			tail->next = v;
+		}
+		tail = v;
+	}
+
+	return true;
+}
+
+ICACHE_FLASH_ATTR static BOOL _c_decodeColl(byte_buffer_t *b, msg_extra_data_t *s){
+	uint16_t size;//元素的个数,最多可以存放255个元素
+	if(!bb_get_u16(b, &size)) {
+		INFO("ERROR: read extra data length fail\r\n");
+		return false;
+	}
+
+	s->len = size;
+	s->neddFreeBytes = true;
+
+	if(size == 0) return true;//无元素
+
+	msg_extra_data_t *tail = NULL;
+	while(size-- > 0) {
+		msg_extra_data_t *v = client_decodeExtra(b);
+		if(v != NULL) {
+			if(tail == NULL) {
+				s->value.bytesVal = v;
+			} else {
+				tail->next = v;
+			}
+			tail = v;
+		} else {
+			INFO("_c_decodeColl list NULL element idx: %d\n",size);
+		}
+	}
+	return true;
+}
+
+ICACHE_FLASH_ATTR msg_extra_data_t* client_decodeExtra(byte_buffer_t *b) {
+
+	sint8_t type;
+	if(!bb_get_s8(b,&type)){
+		INFO("client_decodeExtra get type %d error\n",type);
+		goto error;
+	}
+
+	msg_extra_data_t *rst = extra_create();
+	//void *val = NULL;
+	uint16_t len = 0;
+
+	if(type == PREFIX_TYPE_NULL) {
+		rst->value.bytesVal = NULL;
+		INFO("client_decodeExtra NULL\n",type);
+	}else if(PREFIX_TYPE_BYTEBUFFER == type){
+		INFO("client_decodeExtra bytebuffer type %d\n",type);
+		if(!bb_get_u16(b,&len)) {
+			goto error;
+		}
+
+		rst->len = len;
+
+		if(len == 0) {
+			rst->value.bytesVal = NULL;
+		} else {
+			uint8_t *arr = (uint8_t*)os_zalloc(len);
+			if(!bb_get_bytes(b,arr,len)) {
+				if(arr) os_free(arr);
+				goto error;
+			}
+			rst->neddFreeBytes = true;
+			rst->value.bytesVal = arr;
+		}
+	}else if(type == PREFIX_TYPE_INT){
+		sint32_t v;
+		if(!bb_get_s32(b,&v)) {
+			goto error;
+		} else {
+			rst->value.s32Val = v;
+		}
+		INFO("client_decodeExtra INT %d\n",rst->value.s32Val);
+	}else if(PREFIX_TYPE_BYTE == type){
+		sint8_t v;
+		if(!bb_get_s8(b,&v)) {
+			goto error;
+		} else {
+			rst->value.s8Val = v;
+		}
+		INFO("client_decodeExtra s8 %d\n",rst->value.s8Val);
+	}else if(PREFIX_TYPE_SHORTT == type){
+		sint16_t v;
+		if(!bb_get_s16(b,&v)) {
+			goto error;
+		} else {
+			rst->value.s16Val = v;
+		}
+		INFO("client_decodeExtra s16 %d\n",rst->value.s16Val);
+	}else if(PREFIX_TYPE_LONG == type){
+		sint64_t v;
+		if(!bb_get_s64(b,&v)) {
+			goto error;
+		} else {
+			rst->value.s64Val = v;
+		}
+		INFO("client_decodeExtra s64 %d\n",rst->value.s64Val);
+	}else if(PREFIX_TYPE_FLOAT == type){
+		INFO("client_decodeExtra unsupport FLOAT type: %d\n",type);
+	}else if(PREFIX_TYPE_DOUBLE == type){
+		INFO("client_decodeExtra unsupport DOUBLE type: %d\n",type);
+	}else if(PREFIX_TYPE_BOOLEAN == type){
+		BOOL v;
+		if(!bb_get_bool(b,&v)) {
+			goto error;
+		} else {
+			rst->value.boolVal = v;
+		}
+		INFO("client_decodeExtra boolean type: %d\n",v);
+	}else if(PREFIX_TYPE_CHAR == type){
+		char v;
+		if(!bb_get_char(b,&v)) {
+			goto error;
+		} else {
+			rst->value.charVal = v;
+		}
+		INFO("client_decodeExtra char type: %d\n",v);
+	}else if(PREFIX_TYPE_STRINGG == type){
+		INFO("client_decodeExtra string type: %d\n",type);
+		sint8_t slen;
+		if(!bb_get_s8(b,&slen)) {
+			goto error;
+		}
+		len = slen;
+
+		rst->neddFreeBytes = true;
+
+		if(len == -1) {
+			rst->value.bytesVal = NULL;
+		}else if(len == 0) {
+			char* vptr = (char*)os_zalloc(sizeof(char));
+			rst->value.bytesVal = vptr;
+		}else {
+			sint32_t ilen = len;
+			if(len == 127) {
+				sint16_t slen;
+				if(!bb_get_s16(b,&slen)) {
+					goto error;
+				}
+				ilen = slen;
+
+				if(slen == 32767) {
+					if(!bb_get_s32(b,&ilen)) {
+						goto error;
+					}
+				}
+			}
+
+			rst->len = ilen;
+
+			uint8_t* vptr = (uint8_t*)os_zalloc(ilen + 1);
+			if(vptr == NULL) {
+				goto error;
+			}
+
+			if(!bb_get_bytes(b,vptr,(uint16_t)ilen)) {
+				goto error;
+			}
+
+			vptr[ilen] = '\0';
+			rst->value.bytesVal = vptr;
+			INFO("client_decodeExtra string val: %s\n",vptr);
+		}
+	}else if(PREFIX_TYPE_MAP == type || PREFIX_TYPE_PROXY == type){
+		INFO("client_decodeExtra map type: %d\n",type);
+		if(!_c_decodeMap(b,rst)) {
+			INFO("client_decodeExtra: decode map error %d\n");
+			goto error;
+		}
+		rst->neddFreeBytes = true;//记录要释放内存
+	}else if(PREFIX_TYPE_SET == type || PREFIX_TYPE_LIST == type){
+		INFO("client_decodeExtra list type: %d\n",type);
+		if(!_c_decodeColl(b,rst)) {
+			INFO("client_decodeExtra: decode map error %d\n");
+			goto error;
+		}
+		rst->neddFreeBytes = true;//记录要释放内存
+	}else {
+		INFO("client_decodeExtra unsupport type: %d\n",type);
+		goto error;
+	}
+
+	rst->type = type;
+	rst->next = NULL;
+
+	return rst;
+
+	error:
+		INFO("client_decodeExtra error: %d\n",type);
+		if(rst) os_free(rst);
+		return NULL;
+
+}
+
+ICACHE_FLASH_ATTR BOOL _c_encodeExtra(byte_buffer_t *b, msg_extra_data_t *extras);
+
+ICACHE_FLASH_ATTR static uint16_t _c_encodeWriteLen(byte_buffer_t *b, msg_extra_data_t *extras)  {
+	INFO("_c_encodeWriteLen count len, extras addr: %u\n",extras);
+	int eleCnt = 0;
+	msg_extra_data_t *te = extras;
+	while(te != NULL) {
+		eleCnt++;
+		te = te->next;
+		INFO("_c_encodeWriteLen count len, te: %u\n",te);
+	}
+
+	INFO("_c_encodeWriteLen write len\n");
+	if(!bb_put_u16(b,eleCnt)){
+		return 0;
+	}
+	return eleCnt;
+}
+
+//Endoce
+ICACHE_FLASH_ATTR static BOOL _c_encodeColl(byte_buffer_t *b, msg_extra_data_t *extras)  {
+
+	INFO("_c_encodeColl begin\n");
+
+	int eleCnt = _c_encodeWriteLen(b, extras);
+	if(eleCnt == 0) {
+		INFO("_c_encodeColl element len is zero\n");
+		return true;//锟睫革拷锟斤拷锟斤拷锟斤拷
+	}
+
+	INFO("_c_encodeColl encode loop begin\n");
+
+	while(extras != NULL) {
+		if(!client_encodeExtra(b, extras, extras->type)) {
+			INFO("_c_encodeColl fail\n");
+			return false;
+		}
+		extras = extras->next;
+	}
+
+	INFO("_c_encodeColl end write\n");
+	return true;
+
+}
+
+ICACHE_FLASH_ATTR static BOOL _c_encodeExtraMap(byte_buffer_t *b, msg_extra_data_t *extras){
+
+	INFO("_c_encodeExtraMap begin\n");
+
+	//INFO("extra_encode count len, extras: %u\n",extras);
+	int eleCnt = _c_encodeWriteLen(b, extras);
+	if(eleCnt == 0) {
+		INFO("_c_encodeExtraMap element len is zero\n");
+		return true;//锟睫革拷锟斤拷锟斤拷锟斤拷
+	}
+
+	INFO("_c_encodeExtraMap encode loop begin\n");
+
+	while(extras != NULL) {
+		INFO("_c_encodeExtraMap skey: %s \n",extras->strKey);
+		if(!bb_writeString(b, extras->strKey, os_strlen(extras->strKey))) {
+			INFO("extra_encode fail to write string key: %s", extras->strKey);
+			return false;
+		}
+
+		if(!client_encodeExtra(b,extras,extras->type)) {
+			INFO("_c_encodeExtraMap encode value\n");
+			return false;
+		}
+		extras = extras->next;
+	}
+
+	INFO("_c_encodeExtraMap end write\n");
+	return true;
+}
+
+ICACHE_FLASH_ATTR BOOL client_encodeExtra(byte_buffer_t *b, msg_extra_data_t *extras, sint8_t type) {
+
+	//byte_buffer_t *b = bb_create(512);
+	//sint8_t type = extras->type;
+
+	if((PREFIX_TYPE_STRINGG == type
+			|| PREFIX_TYPE_BYTEBUFFER == type
+			|| PREFIX_TYPE_MAP ==type
+			|| PREFIX_TYPE_LIST == type
+			|| PREFIX_TYPE_SET == type
+	) && extras->value.bytesVal == NULL) {
+		INFO("_c_encodeOneExtra write PREFIX_TYPE_NULL: %d\n", PREFIX_TYPE_NULL);
+		if(!bb_put_s8(b, PREFIX_TYPE_NULL)) {
+			INFO("_c_encodeOneExtra fail to write PREFIX_TYPE_NULL: %d\n", PREFIX_TYPE_NULL);
+			return false;
+		}
+		return true;
+	}
+
+	if(!bb_put_s8(b,type)) {
+		INFO("_c_encodeOneExtra fail to write type: %d\n", type);
+		return false;
+	}
+
+	if (PREFIX_TYPE_BYTEBUFFER == type) {
+		INFO("client_encodeExtra List val\n");
+		uint8_t *ptr = extras->value.bytesVal;
+		if(extras->len <= 0) {
+			bb_put_u16(b, 0);
+			return false ;
+		}
+
+		if (!bb_put_u16(b, extras->len)) {
+			return false ;
+		}
+		if (!bb_put_bytes(b, ptr, extras->len)) {
+			return false;
+		}
+		return true;
+	} else if(type == PREFIX_TYPE_INT) {
+		INFO("client_encodeExtra Integer val: %d\n", extras->value.s32Val);
+		if (!bb_put_s32(b, extras->value.s32Val)) {
+			return false ;
+		}
+		return true;
+	} else if (PREFIX_TYPE_BYTE == type) {
+		INFO("client_encodeExtra Byte val: %d\n", extras->value.s8Val);
+		if (!bb_put_s8(b, extras->value.s8Val)) {
+			return false ;
+		}
+		return true;
+	} else if (PREFIX_TYPE_SHORTT == type) {
+		INFO("client_encodeExtra Short val: %d\n", extras->value.s16Val);
+		if (!bb_put_s16(b, extras->value.s16Val)) {
+			return false ;
+		}
+		return true;
+	} else if (PREFIX_TYPE_LONG == type) {
+		INFO("client_encodeExtra Long val: %d\n", extras->value.s64Val);
+		if (!bb_put_s64(b, extras->value.s64Val)) {
+			return false ;
+		}
+		return true;
+	} else if (PREFIX_TYPE_FLOAT == type) {
+		INFO("client_encodeExtra Float val: %d\n", extras->value.s64Val);
+
+	} else if (PREFIX_TYPE_DOUBLE == type) {
+		INFO("client_encodeExtra Double val: %d\n", extras->value.s64Val);
+
+	} else if (PREFIX_TYPE_BOOLEAN == type) {
+		INFO("client_encodeExtra Boolean val: %d\n", extras->value.boolVal);
+		if (!bb_put_bool(b, extras->value.boolVal)) {
+			return false ;
+		}
+		return true;
+	} else if (PREFIX_TYPE_CHAR == type) {
+		INFO("client_encodeExtra Char val: %d\n", extras->value.charVal);
+		if (!bb_put_char(b, extras->value.charVal)) {
+			return false ;
+		}
+		return true;
+	} else if (PREFIX_TYPE_STRINGG == type) {
+		INFO("client_encodeExtra string len:%d, value: %s\n", extras->len, extras->value.bytesVal);
+		sint8_t len = extras->len;
+		if(len < MAX_BYTE_VALUE) {
+			bb_put_s8(b,len);
+		}else if(len < MAX_SHORT_VALUE) {
+			//0X7F=01111111=127 byte
+			//0X0100=00000001 00000000=128 short
+			bb_put_s8(b,MAX_BYTE_VALUE);
+			bb_put_s16(b,len);
+		}else if(len < MAX_INT_VALUE) {
+			bb_put_s8(b,MAX_BYTE_VALUE);
+			bb_put_s16(b,MAX_SHORT_VALUE);
+			bb_put_s32(b,len);
+		} else {
+			INFO("client_encodeExtra write len fail by exceed %d\n", len);
+			return false;
+		}
+
+		if(len > 0) {
+			if(!bb_put_chars(b,extras->value.bytesVal,len)) {
+				INFO("client_encodeExtra write value fail\n");
+				return false;
+			}
+			//INFO("extra_encode write string value success %s\n",extras->value.bytesVal);
+		}else {
+			INFO("client_encodeExtra len less than zero %d\n",len);
+		}
+	}else if(PREFIX_TYPE_MAP == type || PREFIX_TYPE_PROXY == type) {
+		INFO("client_encodeExtra map value type: %d\n",type);
+		//请求参数是Map
+		/*if(!_c_encodeExtraMap(b,extras->value.bytesVal)) {
+			//编码Map失败
+			return false;
+		}*/
+		if(!_c_encodeExtraMap(b, extras->value.bytesVal)) {
+			//编码Map失败
+			return false;
+		}
+	}else if(PREFIX_TYPE_SET == type || PREFIX_TYPE_LIST == type) {
+		INFO("client_encodeExtra collection value type: %d\n",type);
+		//请求参数是Map
+		if(!_c_encodeColl(b, extras->value.bytesVal)) {
+			//编码Map失败
+			return false;
+		}
+	}
+	return true;
+}
+
+/***********************************解码Extra数据结束*********************************************/
+

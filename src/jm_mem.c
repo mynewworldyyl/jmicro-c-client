@@ -16,19 +16,19 @@
 
 #include "jm_stdcimpl.h"
 
-#define SIZE 11 //��ʼ����
+#define SIZE 11 //锟斤拷始锟斤拷锟斤拷
 
-//����Map
+//锟斤拷锟斤拷Map
 static jm_hash_map_t* cacheMap;
 
-/*******************************Hash Map �������***************************************/
+/*******************************Hash Map 锟斤拷锟斤拷锟斤拷锟�***************************************/
 
 ICACHE_FLASH_ATTR static jm_hash_map_item_t* _hashmap_getItem(jm_hash_map_t *map, char *cacheName, uint32_t idx) {
 	if(map->arr[idx] != NULL) {
 		jm_hash_map_item_t* it = map->arr[idx];
 		while(it != NULL) {
 			if(os_strcmp(cacheName,it->key) == 0) {
-				return it;//����Ԫ��
+				return it;//锟斤拷锟斤拷元锟斤拷
 			}
 			it = it->next;
 		}
@@ -38,9 +38,9 @@ ICACHE_FLASH_ATTR static jm_hash_map_item_t* _hashmap_getItem(jm_hash_map_t *map
 
 ICACHE_FLASH_ATTR static jm_hash_map_item_t* _hashmap_newItem(jm_hash_map_t *map, char *cacheName, uint32_t idx) {
 	jm_hash_map_item_t* it = _hashmap_getItem(map,cacheName,idx);
-	if(it != NULL) return it;//ֱ�ӷ����Ѿ����ڵ���
+	if(it != NULL) return it;//直锟接凤拷锟斤拷锟窖撅拷锟斤拷锟节碉拷锟斤拷
 
-	//����Hash��ͻ����Ҫ�����µ�Ԫ��
+	//锟斤拷锟斤拷Hash锟斤拷突锟斤拷锟斤拷要锟斤拷锟斤拷锟铰碉拷元锟斤拷
 	jm_hash_map_item_t* nit = os_zalloc(sizeof(struct _jm_hash_map_item));
 	os_memset(nit,0,sizeof(struct _jm_hash_map_item));
 
@@ -51,7 +51,7 @@ ICACHE_FLASH_ATTR static jm_hash_map_item_t* _hashmap_newItem(jm_hash_map_t *map
 	keyArr[s] = '\0';
 
 	nit->next = map->arr[idx];
-	map->arr[idx] = nit;//�൱�ڱ�ͷ����
+	map->arr[idx] = nit;//锟洁当锟节憋拷头锟斤拷锟斤拷
 	nit->key = keyArr;
 
 	map->size++;
@@ -76,24 +76,24 @@ ICACHE_FLASH_ATTR BOOL hashmap_put(jm_hash_map_t *map, char *cacheName, void *ex
 	uint32_t idx = _hashmap_idx(map,cacheName);
 	jm_hash_map_item_t* it = _hashmap_getItem(map,cacheName, idx);
 	if(it == NULL) {
-		it = _hashmap_newItem(map,cacheName, idx);
+		it = _hashmap_newItem(map, cacheName, idx);
 		if(it == NULL) {
-			//�ڴ����
+			//锟节达拷锟斤拷锟�
 			INFO("cache_put mof create cache: %s", cacheName);
 			return false;
 		}
 	}
-	//����ֵ
+	//锟斤拷锟斤拷值
 	it->val = extra;
 	return true;
 }
 
 ICACHE_FLASH_ATTR BOOL hashmap_remove(jm_hash_map_t *map, char *cacheName){
-	uint32_t idx = _hashmap_idx(map,cacheName);
-	if(map->arr[idx] == NULL) return false;//ɾ�������ڵ�Ԫ��
+	uint32_t idx = _hashmap_idx(map, cacheName);
+	if(map->arr[idx] == NULL) return false;//删锟斤拷锟斤拷锟斤拷锟节碉拷元锟斤拷
 	if(map->arr[idx]->next == NULL) {
 		if(os_strcmp(cacheName, map->arr[idx]->key) == 0) {
-			//ɾ�����һ��Ԫ��
+			//删锟斤拷锟斤拷锟揭伙拷锟皆拷锟�
 			_hashmap_release_item(map->arr[idx]);
 			map->arr[idx] = NULL;
 			map->size--;
@@ -102,14 +102,14 @@ ICACHE_FLASH_ATTR BOOL hashmap_remove(jm_hash_map_t *map, char *cacheName){
 		return false;
 	}
 
-	//hash��ͻ
+	//hash锟斤拷突
 	jm_hash_map_item_t* it = map->arr+idx;
-	jm_hash_map_item_t* pre = NULL;//��ǰԪ�ص�ǰһ��Ԫ��
+	jm_hash_map_item_t* pre = NULL;//锟斤拷前元锟截碉拷前一锟斤拷元锟斤拷
 
 	while(it != NULL) {
 		if(os_strcmp(cacheName, it->key) == 0) {
 			if(pre == NULL) {
-				//��һ��Ԫ��
+				//锟斤拷一锟斤拷元锟斤拷
 				map->arr[idx] = it->next;
 			} else {
 				pre->next = it->next;
@@ -128,7 +128,7 @@ ICACHE_FLASH_ATTR BOOL hashmap_remove(jm_hash_map_t *map, char *cacheName){
 	return false;
 }
 
-//�ӻ�����ȡ
+//锟接伙拷锟斤拷锟斤拷取
 ICACHE_FLASH_ATTR void* hashmap_get(jm_hash_map_t *map, char *cacheName){
 	uint32_t idx = _hashmap_idx(map,cacheName);
 	jm_hash_map_item_t* it = _hashmap_getItem(map, cacheName, idx);
@@ -138,10 +138,31 @@ ICACHE_FLASH_ATTR void* hashmap_get(jm_hash_map_t *map, char *cacheName){
 	return NULL;
 }
 
-//Ԫ��KEY�Ƿ����
+//元锟斤拷KEY锟角凤拷锟斤拷锟�
 ICACHE_FLASH_ATTR BOOL hashmap_exist(jm_hash_map_t *map, char *cacheName){
 	uint32_t idx = _hashmap_idx(map, cacheName);
 	return _hashmap_getItem(map, cacheName, idx) != NULL;
+}
+
+ICACHE_FLASH_ATTR void* hashmap_iteNext(jm_hash_map_iterator_t *ite){
+	if(ite == NULL) {
+		INFO("hashmap_iterator iterator is NULL!\n");
+		return NULL;
+	}
+
+	if(ite->cur == NULL || ite->cur->next == NULL) {
+		for(ite->idx += 1; ite->idx < ite->map->cap; ite->idx++) {
+			jm_hash_map_item_t* it = *(ite->map->arr + ite->idx);
+			if(it != NULL) {
+				ite->cur = it;
+				return ite->cur->val;
+			}
+		}
+		return NULL;
+	} else {
+		ite->cur = ite->cur->next;
+		return ite->cur->val;
+	}
 }
 
 ICACHE_FLASH_ATTR jm_hash_map_t* hashmap_create(size_t cap){
@@ -153,7 +174,7 @@ ICACHE_FLASH_ATTR jm_hash_map_t* hashmap_create(size_t cap){
 		cap = SIZE;
 	}
 
-	map->arr = os_zalloc(cap * sizeof(struct _jm_hash_map_item*));//����ָ�������׵�ַ
+	map->arr = os_zalloc(cap * sizeof(struct _jm_hash_map_item*));//锟斤拷锟斤拷指锟斤拷锟斤拷锟斤拷锟阶碉拷址
 	os_memset(map->arr,0,cap * sizeof(struct _jm_hash_map_item*));
 
 	map->cap = cap;
@@ -177,13 +198,13 @@ ICACHE_FLASH_ATTR void hashmap_release(jm_hash_map_t *map){
 	os_free(map);
 }
 
-/*******************************Hash Map �������***************************************/
+/*******************************Hash Map 锟斤拷锟斤拷锟斤拷锟�***************************************/
 
-/*******************************Cache ���忪ʼ************************************/
+/*******************************Cache 锟斤拷锟藉开始************************************/
 
 ICACHE_FLASH_ATTR BOOL cache_init(char *cacheName, size_t itemSize){
 	if(cacheMap == NULL) {
-		cacheMap = hashmap_create(SIZE);//��һ��Map
+		cacheMap = hashmap_create(SIZE);//锟斤拷一锟斤拷Map
 		if(cacheMap == NULL) {
 			INFO("cache_init global cache fail: %s, %d\n",cacheName);
 			return false;
@@ -192,7 +213,7 @@ ICACHE_FLASH_ATTR BOOL cache_init(char *cacheName, size_t itemSize){
 
 	if(hashmap_exist(cacheMap, cacheName)) {
 		INFO("cache_init exist cache: %s\n",cacheName);
-		return false;//�����Ѿ�����ͬ������
+		return false;//锟斤拷锟斤拷锟窖撅拷锟斤拷锟斤拷同锟斤拷锟斤拷锟斤拷
 	}
 
 	jm_cache_header_t* ch = os_zalloc(sizeof(struct _jm_cache_header));
@@ -208,7 +229,7 @@ ICACHE_FLASH_ATTR BOOL cache_init(char *cacheName, size_t itemSize){
 	if(!hashmap_put(cacheMap,cacheName,ch)) {
 		INFO("cache_init fail to put cache: %s\n",cacheName);
 		os_free(ch);
-		return false;//�����Ѿ�����
+		return false;//锟斤拷锟斤拷锟窖撅拷锟斤拷锟斤拷
 	}
 
 	return true;
@@ -253,7 +274,7 @@ ICACHE_FLASH_ATTR void* cache_get(char *cacheName, BOOL created){
 	}
 
 	if(ch->cache) {
-		//�л��棬����һ��δʹ�õ���
+		//锟叫伙拷锟芥，锟斤拷锟斤拷一锟斤拷未使锟矫碉拷锟斤拷
 		jm_cache_t *c = ch->cache, *pre = NULL;
 		while(c) {
 			if(!c->used) {
@@ -265,7 +286,7 @@ ICACHE_FLASH_ATTR void* cache_get(char *cacheName, BOOL created){
 		}
 
 		if(c) {
-			os_memset(c->item,0,ch->memSize);//�����ڴ�Ϊ0
+			os_memset(c->item,0,ch->memSize);//锟斤拷锟斤拷锟节达拷为0
 			c->used = true;
 			return c->item;
 		}
@@ -287,7 +308,7 @@ ICACHE_FLASH_ATTR void* cache_get(char *cacheName, BOOL created){
 	}
 }
 
-//�黹һ������
+//锟介还一锟斤拷锟斤拷锟斤拷
 ICACHE_FLASH_ATTR BOOL cache_back(char *cacheName, void *it){
 	if(cacheMap == NULL) {
 		INFO("cache_back cache is NULL: %s",cacheName);
@@ -298,7 +319,7 @@ ICACHE_FLASH_ATTR BOOL cache_back(char *cacheName, void *it){
 
 	if(!ch) {
 		INFO("cache_back cache not exist: %s\n",cacheName);
-		return false;//���滹������
+		return false;//锟斤拷锟芥还锟斤拷锟斤拷锟斤拷
 	}
 
 	jm_cache_t* c = ch->cache;
@@ -312,9 +333,9 @@ ICACHE_FLASH_ATTR BOOL cache_back(char *cacheName, void *it){
 	}
 
 	INFO("cache_back back item not exist: %s\n",cacheName);
-	return false;//���滹������
+	return false;//锟斤拷锟芥还锟斤拷锟斤拷锟斤拷
 
 }
 
 
-/*******************************Cache �������************************************/
+/*******************************Cache 锟斤拷锟斤拷锟斤拷锟�************************************/

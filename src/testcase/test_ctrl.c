@@ -73,7 +73,7 @@ int test_ctrl_jm()
 
 	udp_client_ws_init();
 
-	jm_ctrl_init();
+	ctrl_init();
 
 	/*if(client_subscribeP2PByType(test_onPubsubItemType1Listener,-128)) {
 		printf("test_jmLoginListener1注册成功\n");

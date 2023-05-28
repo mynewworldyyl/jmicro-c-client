@@ -28,34 +28,56 @@
 #include "jm_client.h"
 #include "jm_ctrl.h"
 
-#define TLED GPIO_ID_PIN(5)
-#define TINT_INPUT GPIO_ID_PIN(12)
+#define RPC_CB_CODE_VERS 1
+#define RPC_CB_CODE_SAVE_RST 2
 
 #define CTRL_ITEM_TYPE PS_TYPE_CODE(-128)
 
-static uint32 intCnt;
-
 #define FUNC_SIZE 20
+
 static jm_hash_map_t *functionItems;
 
+static ctrl_arg bindDeviceIdArgs[] = {
+	{"op", "0", PREFIX_TYPE_BYTE, 0, RESP_OP_CODE_DESC},
+	{"deviceId", "", PREFIX_TYPE_STRINGG, 0, RESP_OP_DEVICEID_DESC},
+	{"actId", "", PREFIX_TYPE_INT, 0, RESP_OP_ACTID_DESC},
+};
+
+ICACHE_FLASH_ATTR static void  _ctrl_onRpcResult(msg_extra_data_t *rst, sint32_t code, char *errMsg, void *args);
+
 //注册一个控制方法
-ICACHE_FLASH_ATTR BOOL ctrl_registFun(char *funName, ctrl_fn fun) {
+ICACHE_FLASH_ATTR BOOL ctrl_registFun(char *funName, ctrl_fn fun, ctrl_arg* args, char *desc, uint8_t ver) {
 	if(ctrl_exists(funName)) {
 		INFO("ctrl_registFun %s name exist",funName);
 		return false;
 	}
 
-	uint8_t fnlen = os_strlen(funName);
-	char *fname = os_zalloc(fnlen+1);
-	os_memcpy(fname,funName,fnlen);
-	fname[fnlen] = '\0';
-
 	ctrl_item *fn = os_zalloc(sizeof(ctrl_item));
-	fn->fn = fun;
-	fn->funName = fname;
-	fn->type = CTRL_ITEM_TYPE;
+	os_memset(fn, 0, sizeof(ctrl_item));
 
-	return hashmap_put(functionItems,fname,fn);
+	uint8_t fnlen = os_strlen(funName);
+	fn->funName = os_zalloc(fnlen+1);
+	os_memcpy(fn->funName,funName,fnlen);
+	fn->funName[fnlen] = '\0';
+
+	if(desc) {
+		fnlen = os_strlen(desc);
+		fn->funDesc = os_zalloc(fnlen+1);
+		os_memcpy(fn->funDesc,desc,fnlen);
+		fn->funDesc[fnlen] = '\0';
+	}
+
+	fn->fn = fun;
+	fn->type = CTRL_ITEM_TYPE;
+	fn->ver=ver;
+	fn->args = args;
+
+	BOOL rst = hashmap_put(functionItems, fn->funName, fn);
+
+	//ctrl_item *fnh = hashmap_get(functionItems,fn->funName);
+	//INFO("ctrl_registFun funcName: %s\n",fnh->funName);
+
+	return rst;
 }
 
 //注册一个控制方法
@@ -178,87 +200,30 @@ ICACHE_FLASH_ATTR static void _ctrl_invokeFunc(jm_pubsub_item_t *it){
 }
 
 
-/*ICACHE_FLASH_ATTR static void node_initLed()
-{
-	os_printf("init LED turn\n");
-	PIN_FUNC_SELECT(PERIPHS_IO_MUX_MTDO_U, FUNC_GPIO15);
-
-	GPIO_OUTPUT_SET(TLED,1);
-}*/
-
-ICACHE_FLASH_ATTR static void node_ledTurn(uint32_t gpioNo)
-{
-	os_printf("LED turn\n");
-
-	//uint32 curv = GPIO_INPUT_GET(TLED);
-	//GPIO_OUTPUT_SET(TLED, ~curv);
-#ifndef WIN32
-	uint32 curv = ~((gpio_input_get()>>gpioNo) & BIT0);
-	gpio_output_set((curv)<<gpioNo, ((~curv) & 0x01)<<gpioNo, 1<<gpioNo,0);
-#endif
-
-}
-
-ICACHE_FLASH_ATTR void node_interrupt_cb() {
-#ifndef WIN32
-	uint32	gpio_status;
-	gpio_status	= GPIO_REG_READ(GPIO_STATUS_ADDRESS);
-	GPIO_REG_WRITE(GPIO_STATUS_W1TC_ADDRESS, gpio_status);
-
-	os_printf("Interrupt cnt %d\n", intCnt++);
-#endif
-
-}
-
-ICACHE_FLASH_ATTR  void node_init_interrupt()
-{
-	os_printf("init LED turn");
-
-	/*
-	PIN_FUNC_SELECT(PERIPHS_IO_MUX_MTDI_U, FUNC_GPIO12);
-	GPIO_DIS_OUTPUT(TINT_INPUT);
-
-	PIN_PULLUP_EN(PERIPHS_IO_MUX_MTDI_U);
-
-	ETS_GPIO_INTR_DISABLE();
-	ETS_GPIO_INTR_ATTACH((ets_isr_t)node_interrupt_cb,	NULL);
-	gpio_pin_intr_state_set(TINT_INPUT,	GPIO_PIN_INTR_NEGEDGE);
-	ETS_GPIO_INTR_ENABLE();
-	*/
-#ifndef WIN32
-	PIN_FUNC_SELECT(PERIPHS_IO_MUX_GPIO0_U , FUNC_GPIO0);
-	GPIO_DIS_OUTPUT(0);
-	PIN_PULLUP_EN(PERIPHS_IO_MUX_GPIO0_U);
-	ETS_GPIO_INTR_DISABLE();
-	ETS_GPIO_INTR_ATTACH(node_interrupt_cb, NULL);
-	gpio_pin_intr_state_set(0, GPIO_PIN_INTR_NEGEDGE);
-	ETS_GPIO_INTR_ENABLE();
-#endif
-
-}
-
-ICACHE_FLASH_ATTR static void jm_ctrl_onPubsubItemTypeListener(jm_pubsub_item_t *item) {
-	INFO("jm_ctrl_onPubsubItemTypeListener got ps item type: %d\n",item->type);
+ICACHE_FLASH_ATTR static void _ctrl_onPubsubItemTypeListener(jm_pubsub_item_t *item) {
+	INFO("_ctrl_onPubsubItemTypeListener got ps item type: %d\n",item->type);
 	switch(item->type) {
 	case PS_TYPE_CODE(0):
 		//0号类型用于测试ESP8266络网连接是否正常
 		//test_onTest(item);
-		INFO("jm_ctrl_onPubsubItemTypeListener test device ready OK!\n");
+		INFO("_ctrl_onPubsubItemTypeListener test device ready OK!\n");
 		break;
 	case PS_TYPE_CODE(1):
 		//反转15引脚电平信息
-		INFO("jm_ctrl_onPubsubItemTypeListener node_ledTurn begin\n");
+		INFO("_ctrl_onPubsubItemTypeListener node_ledTurn begin\n");
 	    uint32  gpioNo = atoi((char*)item->data);
-		node_ledTurn(gpioNo);
-		INFO("jm_ctrl_onPubsubItemTypeListener node_ledTurn end\n");
+#ifndef WIN32
+	    jm_key_ledTurn(gpioNo);
+#endif
+		INFO("_ctrl_onPubsubItemTypeListener node_ledTurn end\n");
 		break;
 
 #ifdef JM_AT
 	case PS_TYPE_CODE(2):
 		//AT指令
-		INFO("jm_ctrl_onPubsubItemTypeListener process AT cmd %s\n",item->data);
+		INFO("_ctrl_onPubsubItemTypeListener process AT cmd %s\n",item->data);
 		at_fake_uart_rx(item->data,os_strlen(item->data));
-		INFO("jm_ctrl_onPubsubItemTypeListener process AT cmd end\n");
+		INFO("_ctrl_onPubsubItemTypeListener process AT cmd end\n");
 		break;
 #endif
 
@@ -272,17 +237,205 @@ ICACHE_FLASH_ATTR static void jm_ctrl_onPubsubItemTypeListener(jm_pubsub_item_t 
 	}
 }
 
-ICACHE_FLASH_ATTR static void  jm_ctrl_jmLoginListener(sint32_t code, char *msg, char *loginKey, sint32_t actId){
-	if(!client_isLogin()) {
-		os_printf("jm_ctrl_jmLoginListener Login fail with code: %d, msg:%s\n",code,msg);
+/**
+ * RPC函数参数都是一个LIST，LIST每个元素表示函数的一个参数
+ * 每个功能元素用一个Map表示，
+ * 功能的参数args是一个列表，内嵌一个列表，列表每个元素是一个对像
+ * 所以RPC参数结构如下
+ * --LIST  PREFIX_TYPE_LIST  extra
+ * 	[  --Map PREFIX_TYPE_MAP  extra
+ * 		{
+	 * 		ver:
+	 * 		type:
+	 * 		funcDesc:
+	 * 		funName:
+	 * 		args:[ --LIST PREFIX_TYPE_LIST
+	 * 			-- Map  PREFIX_TYPE_MAP
+	 * 			{
+	 * 				name:
+	 * 				desc:
+	 * 				defVal:
+	 * 				maxLen:
+	 * 				type:
+	 * 			}
+	 * 		]
+ * 		}
+ * 	]
+ *
+ *	list extra
+ *		bytesVal -- Map extra 1
+ *						bytesVal -- Map fields list
+ *				 -- Map extra 2
+ *				 		bytesVal -- Map fields list
+ *				 -- Map extra N
+ *				 		bytesVal -- Map fields list
+ */
+ICACHE_FLASH_ATTR static void  _ctrl_updateOneFun(ctrl_item *fi){
+	INFO("_ctrl_updateOneFun %s\n",fi->funName);
+
+	msg_extra_data_t *rpcPsList = extra_sput(NULL, "rpcPsList", PREFIX_TYPE_LIST);
+
+	msg_extra_data_t *psObj1 = extra_sput(NULL, "psObj1", PREFIX_TYPE_MAP);
+	rpcPsList->value.bytesVal = psObj1;
+
+	//代表一个功能
+	msg_extra_data_t *efi = extra_sputStr(NULL, "funName", fi->funName, -1);
+	psObj1->value.bytesVal = efi;
+
+	extra_sputS8(efi, "ver", fi->ver);
+	extra_sputS8(efi, "type", fi->type);
+	extra_sputStr(efi, "funDesc", fi->funDesc, -1);
+
+	if(fi->args != NULL && sizeof(fi->args) > 0) {
+		//功能关联参数
+		msg_extra_data_t *arg = extra_sput(efi, "args", PREFIX_TYPE_LIST);
+
+		msg_extra_data_t *argList = NULL;
+
+		uint8_t argNum = sizeof(fi->args)/sizeof(ctrl_item);
+
+		INFO("_ctrl_updateOneFun argNum: %d\n",argNum);
+
+		for(int idx = 0; idx < argNum; idx++ ) {
+			ctrl_arg *ar = fi->args + idx;
+			INFO("_ctrl_updateOneFun arg: %s \n", ar->name);
+
+			msg_extra_data_t *e = extra_sputStr(argList, "name", ar->name, -1);
+			if(argList == NULL) {
+				argList = e;
+			}
+			extra_sputStr(argList, "desc", ar->desc);
+			extra_sputStr(argList, "defVal", ar->defVal);
+			extra_sputS8(argList, "maxLen", ar->maxLen);
+			extra_sputS8(argList, "type", ar->type);
+		}
+
+		arg->len = 4;
+		arg->neddFreeBytes = true;
+		arg->value.bytesVal = argList;
+
+		INFO("_ctrl_updateOneFun arg end: %s \n", fi->funName);
+	}
+
+	INFO("_ctrl_updateOneFun  invoke RPC:  %s \n", fi->funName);
+
+	/*msg_extra_data_t *ps = extra_sput(NULL, "ps", PREFIX_TYPE_MAP);
+	ps->value.bytesVal = efi;
+	ps->neddFreeBytes = true;
+
+	msg_extra_data_t *plist = extra_sput(NULL, "list", PREFIX_TYPE_LIST);
+	ps->value.bytesVal = ps;
+	ps->neddFreeBytes = true;*/
+
+	client_invokeRpc(916042094, rpcPsList, _ctrl_onRpcResult, (void*)RPC_CB_CODE_SAVE_RST);
+
+	extra_release(rpcPsList);
+
+	INFO("_ctrl_updateOneFun end %s\n",fi->funName);
+}
+
+ICACHE_FLASH_ATTR static void  _ctrl_delOneFun(char *funName){
+	INFO("_ctrl_delOneFun %s\n", funName);
+}
+
+ICACHE_FLASH_ATTR static void  _ctrl_submitFuns(msg_extra_data_t *verMap){
+
+	INFO("_ctrl_submitFuns begin\n");
+
+	jm_hash_map_iterator_t ite = {functionItems, NULL, -1};
+
+	if(verMap == NULL) {
+		INFO("_ctrl_submitFuns do ALL add\n");
+		//服务器无此设备数据，需做全量更新
+		ctrl_item *mi = NULL;
+		//INFO("jm_hash_map_iterator_t cur: %u, idx: %d, map: %u\n", ite.cur, ite.idx, ite.map);
+		while((mi = hashmap_iteNext(&ite)) != NULL) {
+			//INFO("fnaddr: %u, desc: %s, name: %s, type: %d, ver:%d\n", mi->fn, mi->funDesc, mi->funName, mi->type, mi->ver);
+			INFO("_ctrl_submitFuns add one %s\n", mi->funName);
+			_ctrl_updateOneFun(mi);
+		}
+	} else {
+		INFO("_ctrl_submitFuns do diff update\n");
+
+		msg_extra_data_t *ex = NULL;
+		//查找新增
+		ctrl_item *mi = NULL;
+		while((mi = hashmap_iteNext(&ite)) != NULL) {
+			 ex = extra_sget(verMap, mi->funName);
+			 if(NULL == ex) {
+				 INFO("_ctrl_submitFuns add one %s\n", mi->funName);
+				 //服务器没有，新增
+				 _ctrl_updateOneFun(mi);
+			 } else {
+				 if(mi->ver > ex->value.s8Val) {
+					 INFO("_ctrl_submitFuns update one %s\n", mi->funName);
+					 //版本更新
+					 _ctrl_updateOneFun(mi);
+				 }
+			 }
+		}
+		INFO("_ctrl_submitFuns do diff update end\n");
+
+		msg_extra_data_iterator_t extraIte = {verMap, NULL};
+		//查找删除
+		while((ex = extra_iteNext(&extraIte)) != NULL) {
+			if(!hashmap_exist(functionItems,ex->strKey)) {
+				INFO("_ctrl_submitFuns delete one %s\n", ex->strKey);
+				_ctrl_delOneFun(ex->strKey);
+			}
+		}
+
+		INFO("_ctrl_submitFuns do diff delete end\n");
+	}
+
+	INFO("_ctrl_submitFuns end\n");
+}
+
+//同步本地命令到JM平台
+ICACHE_FLASH_ATTR static void  _ctrl_onRpcResult(msg_extra_data_t *rst, sint32_t code, char *errMsg, void *args){
+	if(code != 0) {
+		INFO("_ctrl_onRpcResult got error code: %d, errMsg: %s, args:%d\n",code, errMsg, args);
 		return;
 	}
-	if(client_subscribeByType(jm_ctrl_onPubsubItemTypeListener,0,true)) {
-		//订阅本设备全部类型消息,消息经服务器下发，所以需要登录成功后才能下发
-		INFO("jm_ctrl_onPubsubItemTypeListener remote success\n");
-	} else {
-		INFO("jm_ctrl_onPubsubItemTypeListener remote error\n");
+
+	INFO("_ctrl_onRpcResult got result cbcode:%d\n",args);
+
+	msg_extra_data_t *verList = extra_sget(rst,"data");
+
+	uint8_t cbcode = (uint8_t) args;
+	switch(cbcode) {
+	case RPC_CB_CODE_VERS:
+		if(verList == NULL) {
+			INFO("Server not device fun, need submit all funs\n");
+		} else {
+			verList = (msg_extra_data_t *)verList->value.bytesVal;
+		}
+		//服务器功能版本码列表
+		_ctrl_submitFuns(verList);
+		break;
+	case RPC_CB_CODE_SAVE_RST:
+		//服务器功能版本码列表
+		INFO("Save function result\n");
+		break;
 	}
+	INFO("_ctrl_onRpcResult end cbcode:%d\n",args);
+}
+
+ICACHE_FLASH_ATTR static void  _ctrl_jmLoginListener(sint32_t code, char *msg, char *loginKey, sint32_t actId){
+	if(!client_isLogin()) {
+		os_printf(" Login fail with code: %d, msg:%s\n",code,msg);
+		return;
+	}
+
+	client_invokeRpc(-970493731, NULL, _ctrl_onRpcResult, (void*)RPC_CB_CODE_VERS);
+
+	if(client_subscribeByType(_ctrl_onPubsubItemTypeListener,0,true)) {
+		//订阅本设备全部类型消息,消息经服务器下发，所以需要登录成功后才能下发
+		INFO("_ctrl_jmLoginListener remote success\n");
+	} else {
+		INFO("_ctrl_jmLoginListener remote error\n");
+	}
+
 }
 
 ICACHE_FLASH_ATTR void test_scan_wifi_cb(void *arg, STATUS statu)
@@ -318,7 +471,7 @@ ICACHE_FLASH_ATTR void ICACHE_FLASH_ATTR test_scan_wifi_aps()
 ICACHE_FLASH_ATTR static msg_extra_data_t* _ctrl_invalidOpCode(msg_extra_data_t *ps, char *m, sint8_t op){
 	char msg[64];
 	os_sprintf(msg, m, op);
-	ps = extra_sputStr(ps,"msg", msg);
+	ps = extra_sputStr(ps,"msg", msg,3);
 	return ps;
 }
 
@@ -373,8 +526,8 @@ ICACHE_FLASH_ATTR static msg_extra_data_t* _ctrl_remote_bindDevice(msg_extra_dat
 	case RESP_OP_QRY:
 		//查询绑定关系
 		extra_sputS16(h,"deviceId", sysCfg.device_id,-1);
-		extra_sputS32(h,"actId", sysCfg.actId,-1);
-		extra_sputS32(h,"isLogin", client_isLogin());
+		extra_sputS32(h,"actId", sysCfg.actId);
+		extra_sputBool(h,"isLogin", client_isLogin());
 		break;
 	case RESP_OP_UP:
 		//绑定设备
@@ -395,7 +548,7 @@ ICACHE_FLASH_ATTR static msg_extra_data_t* _ctrl_remote_bindDevice(msg_extra_dat
 		} else {
 			char msg[32] = {0};
 			os_sprintf(msg,"invalid deviceId %d\n",hlen);
-			extra_sputStr(h,RESP_MSG, msg);
+			extra_sputStr(h,RESP_MSG, msg,-1);
 			extra_sputS16(h,RESP_CODE, 2);
 			INFO(msg);
 			return h;
@@ -409,7 +562,7 @@ ICACHE_FLASH_ATTR static msg_extra_data_t* _ctrl_remote_bindDevice(msg_extra_dat
 		} else {
 			char msg[32];
 			os_sprintf(msg,"invalid actId %d\n",actId);
-			extra_sputStr(h,RESP_MSG, msg);
+			extra_sputStr(h,RESP_MSG, msg,-1);
 			extra_sputS16(h,RESP_CODE, 3);
 			INFO(msg);
 			return h;
@@ -427,7 +580,7 @@ ICACHE_FLASH_ATTR static msg_extra_data_t* _ctrl_remote_bindDevice(msg_extra_dat
 		INFO("_ctrl_remote_bindDevice unbind device\n");
 		//解绑
 		if(sysCfg.actId <= 0) {
-			extra_sputStr(h,RESP_MSG, "device not bind any account!");
+			extra_sputStr(h,RESP_MSG, "device not bind any account!",-1);
 			extra_sputS16(h,RESP_CODE, 1);
 			return h;
 		}
@@ -485,7 +638,7 @@ ICACHE_FLASH_ATTR static msg_extra_data_t* _ctrl_remote_jmInfo(msg_extra_data_t 
 		} else {
 			char msg[32] = {0};
 			os_sprintf(msg,"invalid host %s",host);
-			extra_sputStr(h,"msg", msg);
+			extra_sputStr(h,"msg", msg,-1);
 			return h;
 		}
 
@@ -497,7 +650,7 @@ ICACHE_FLASH_ATTR static msg_extra_data_t* _ctrl_remote_jmInfo(msg_extra_data_t 
 		} else {
 			char msg[32];
 			os_sprintf(msg,"invalid port %d\n",port);
-			extra_sputStr(h,"msg", msg);
+			extra_sputStr(h,"msg", msg,-1);
 			return h;
 		}
 
@@ -559,8 +712,6 @@ ICACHE_FLASH_ATTR static msg_extra_data_t* _ctrl_remote_ctrlGpio(msg_extra_data_
 
 }
 
-
-
 ICACHE_FLASH_ATTR static msg_extra_data_t* _ctrl_remote_about(msg_extra_data_t *ps){
 	char *str = "JMicro IoT is a system to operate devices deployed any place!";
 	msg_extra_data_t *h = extra_sputStr(NULL,"desc", str, -1);
@@ -568,19 +719,45 @@ ICACHE_FLASH_ATTR static msg_extra_data_t* _ctrl_remote_about(msg_extra_data_t *
 	return h;
 }
 
+ICACHE_FLASH_ATTR void _ctrl_remote_restartSystem(msg_extra_data_t *ps) {
+	INFO("_ctrl_remote_restartSystem restart system\n");
+#ifndef WIN32
+	system_restart();
+#endif
+}
+
 /******************************esp 8266 远程方法结束***********************************/
 
-void ICACHE_FLASH_ATTR jm_ctrl_init(void){
+/**
+	char *name; //参数名称，如op,code,msg等
+	char *defVal; //默认值
+	sint8_t type; //参数类型，参考jm_msg.h文件  PREFIX_TYPE_BYTE，PREFIX_TYPE_SHORT等
+	sint8_t maxLen; //参数最大长度
+	char *desc;
+ */
+void ICACHE_FLASH_ATTR _ctrl_registDefFuntions(void){
+
+	//ctrl_registFun("sysInfo", _ctrl_remote_sysInfo,NULL);
+	//ctrl_registFun("about", _ctrl_remote_about,NULL);
+
+	ctrl_registFun("bindDeviceId", _ctrl_remote_bindDevice, bindDeviceIdArgs,"bind device with ID",2);
+
+	//ctrl_registFun("ctrlGpio", _ctrl_remote_ctrlGpio);
+
+	//ctrl_registFun("jmInfo", _ctrl_remote_jmInfo);
+
+	//ctrl_registFun("restartSystem", _ctrl_remote_restartSystem);
+
+}
+
+void ICACHE_FLASH_ATTR ctrl_init(void){
 
 	functionItems = hashmap_create(FUNC_SIZE);
-	ctrl_registFun("sysInfo",_ctrl_remote_sysInfo);
-	ctrl_registFun("about",_ctrl_remote_about);
-	ctrl_registFun("bindDeviceId",_ctrl_remote_bindDevice);
-	ctrl_registFun("ctrlGpio",_ctrl_remote_ctrlGpio);
-	ctrl_registFun("jmInfo",_ctrl_remote_jmInfo);
+
+	_ctrl_registDefFuntions();
 
 	//注册手机与设备间的消息处理器
-	if(client_subscribe(TOPIC_P2P, (client_PubsubListenerFn)jm_ctrl_onPubsubItemTypeListener, 0, false)) {
+	if(client_subscribe(TOPIC_P2P, (client_PubsubListenerFn)_ctrl_onPubsubItemTypeListener, 0, false)) {
 		//订阅本设备全部类型消息
 		INFO("test_onPubsubItemType1Listener TOPIC_P2P regist p2p topic success\n");
 	} else {
@@ -593,16 +770,16 @@ void ICACHE_FLASH_ATTR jm_ctrl_init(void){
 		INFO("jm_udpclient_init  regist test listener fail\n");
 	}*/
 
-	/*if(client_subscribeByType(jm_ctrl_onPubsubItemTypeListener,0,true)) {
+	/*if(client_subscribeByType(_ctrl_onPubsubItemTypeListener,0,true)) {
 		//订阅本设备全部类型消息,消息经服务器下发，所以需要登录成功后才能下发
-		INFO("jm_ctrl_onPubsubItemTypeListener remote success\n");
+		INFO("_ctrl_onPubsubItemTypeListener remote success\n");
 	} else {
-		INFO("jm_ctrl_onPubsubItemTypeListener remote error\n");
+		INFO("_ctrl_onPubsubItemTypeListener remote error\n");
 	}*/
 
 	//node_initLed();
 	//INFO("jm_ctrl_init regist login listener begin\n");
-	client_registLoginListener(jm_ctrl_jmLoginListener);
+	client_registLoginListener(_ctrl_jmLoginListener);
 	//INFO("jm_ctrl_init regist login listener end\n");
 	//node_init_interrupt();
 

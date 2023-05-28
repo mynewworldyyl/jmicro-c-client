@@ -17,7 +17,7 @@ ICACHE_FLASH_ATTR void * jm_memset(void * s,int c,unsigned int count);
 ICACHE_FLASH_ATTR void * jm_memcpy(void * dest,const void *src,unsigned int count);
 ICACHE_FLASH_ATTR int jm_sprintf(char * str, const char *fmt, ...);
 ICACHE_FLASH_ATTR void jm_itoa(unsigned int n, char * buf);
-ICACHE_FLASH_ATTR int jm_atoi(char* pstr);
+ICACHE_FLASH_ATTR long jm_atoi(char* pstr);
 ICACHE_FLASH_ATTR void jm_xtoa(unsigned int n, char * buf);
 ICACHE_FLASH_ATTR int jm_isDigit(unsigned char c);
 ICACHE_FLASH_ATTR int jm_isLetter(unsigned char c);

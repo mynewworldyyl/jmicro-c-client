@@ -23,13 +23,13 @@ extern int test_stdio_method();
 extern void testGetCacheItem();
 extern void test_udp_server();
 
-int test_udp_jm_client_pubsub();
+extern int test_udp_jm_client_pubsub();
 
-int test_ctrl_jm();
+extern int test_ctrl_jm();
 
-void create_thread();
+extern void create_thread();
 
-void start_jm();
+extern void start_jm();
 
 int main(char* argv, int argc)
 {
@@ -53,4 +53,5 @@ int main(char* argv, int argc)
 	//create_thread();
 
 	start_jm();
+
 }

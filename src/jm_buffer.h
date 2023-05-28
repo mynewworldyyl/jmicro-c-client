@@ -53,6 +53,7 @@ typedef enum _client_send_msg_result{
 	SEND_QUEQUE_EXCEED, //发送队列已满
 	SEND_INVALID_ACCOUNT, //无效账号ID
 	SEND_INVALID_DEVICE_ID,//无效设备ID
+	BUSSY,//忙
 
 } client_send_msg_result_t;
 

@@ -61,7 +61,6 @@ BOOL jm_checkLocalServer(){
 	return true;
 }
 
-
 BOOL udp_client_recv_one_loop() {
 
 	if(client_socket == NULL) return false;
@@ -81,7 +80,7 @@ BOOL udp_client_recv_one_loop() {
 
 	//printChars(buf,tmpres);
 	if(!bb_put_chars(readBuf,buf,tmpres)){
-		INFO("byte_buffer writeable len: %d, read len:%d",bb_writeable_len(readBuf),tmpres);
+		INFO("byte_buffer writeable len: %d, read len:%d",bb_writeable_len(readBuf), tmpres);
 		bb_clear(readBuf);
 		return FALSE;
 	}

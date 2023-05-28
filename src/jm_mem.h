@@ -21,6 +21,12 @@ typedef struct _jm_hash_map {
 	uint32_t size;
 } jm_hash_map_t;
 
+typedef struct _jm_hash_map_iterator {
+	jm_hash_map_t *map;
+	jm_hash_map_item_t *cur;
+	sint32_t idx;
+} jm_hash_map_iterator_t;
+
 typedef struct _jm_cache {
 	void* item;
 	BOOL used;//
@@ -34,11 +40,14 @@ typedef struct _jm_cache_header {
 } jm_cache_header_t;
 
 
+
+typedef void (*map_iterator_fn)(char *key, void *val, void *arg);
+
 #ifdef __cplusplus
 extern "C" {
 #endif
 
-ICACHE_FLASH_ATTR static jm_hash_map_item_t* _hashmap_getItem(jm_hash_map_t *map, char *cacheName, uint32_t idx);
+//ICACHE_FLASH_ATTR static jm_hash_map_item_t* _hashmap_getItem(jm_hash_map_t *map, char *cacheName, uint32_t idx);
 
 ICACHE_FLASH_ATTR BOOL hashmap_put(jm_hash_map_t *map, char *cacheName, void *extra);
 ICACHE_FLASH_ATTR BOOL hashmap_remove(jm_hash_map_t *map, char *cacheName);
@@ -49,6 +58,9 @@ ICACHE_FLASH_ATTR BOOL hashmap_exist(jm_hash_map_t *map, char *cacheName);
 
 ICACHE_FLASH_ATTR jm_hash_map_t* hashmap_create(size_t cap);
 ICACHE_FLASH_ATTR void hashmap_release(jm_hash_map_t *map);
+
+//ICACHE_FLASH_ATTR jm_hash_map_iterator_t* hashmap_iteCreate(map_iterator_fn ite);
+ICACHE_FLASH_ATTR void* hashmap_iteNext(jm_hash_map_iterator_t *ite);
 
 /*******************************Hash Map***************************************/
 

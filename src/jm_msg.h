@@ -14,6 +14,7 @@
 #define  PROTOCOL_BIN  0
 #define  PROTOCOL_JSON  1
 #define  PROTOCOL_EXTRA  2
+#define  PROTOCOL_RAW 3
 
 #define  PRIORITY_0  0
 #define  PRIORITY_1  1
@@ -36,6 +37,8 @@
 
 #define FLAG_UP_PROTOCOL  1
 #define FLAG_DOWN_PROTOCOL  8
+#define FLAG_UP_PROTOCOL_MASK  0xFFF9
+#define FLAG_DOWN_PROTOCOL_MASK  0xFCFF
 
 #define FLAG_MONITORABLE  (1 << 3)
 
@@ -50,8 +53,10 @@
 #define FLAG_DEV  (1 << 10)
 
 #define FLAG_RESP_TYPE  11
+#define FLAG_RESP_TYPE_MASK  0xE7FF //1110 0111 1111 1111
 
 #define FLAG_LOG_LEVEL  13
+#define FLAG_LOG_LEVEL_MASK  0x1FFF //0001 1111 1111 1111
 
 /****************  extra constants flag   *********************/
 
@@ -182,6 +187,11 @@ typedef struct _msg_extra_data {
 	struct _msg_extra_data *next;
 } msg_extra_data_t;
 
+typedef struct _msg_extra_data_iterator {
+	msg_extra_data_t *header;
+	msg_extra_data_t *cur;
+} msg_extra_data_iterator_t;
+
 /**
  * Messge format:
 
@@ -269,6 +279,9 @@ typedef struct _jm_msg {
 	struct _jm_msg *cacheNext;
 } jm_msg_t;
 
+typedef void (*extra_iterator_fn)(sint8_t key, void *val, sint8_t type);
+
+typedef void (*extra_siterator_fn)(char *key, void *val, sint8_t type);
 
 #ifdef __cplusplus
 extern "C" {
@@ -278,15 +291,14 @@ extern "C" {
  */
 ICACHE_FLASH_ATTR msg_extra_data_t *extra_decode(byte_buffer_t *b);
 
-/**
- */
 ICACHE_FLASH_ATTR BOOL extra_encode(msg_extra_data_t *extras, byte_buffer_t *b, uint16_t *wl,uint8_t keyType);
-ICACHE_FLASH_ATTR BOOL extra_encodeRpcReqParams(msg_extra_data_t *extras, byte_buffer_t *b);
 
 ICACHE_FLASH_ATTR void extra_release(msg_extra_data_t *extra);
 ICACHE_FLASH_ATTR msg_extra_data_t* extra_create();
 
 ICACHE_FLASH_ATTR msg_extra_data_t * extra_pullAll(msg_extra_data_t *from, msg_extra_data_t *to);
+
+ICACHE_FLASH_ATTR msg_extra_data_t * extra_iteNext();
 
 ICACHE_FLASH_ATTR msg_extra_data_t* extra_sget(msg_extra_data_t *header, char *key);
 ICACHE_FLASH_ATTR sint16_t extra_sgetS16(msg_extra_data_t *e, char *strKey);
@@ -375,15 +387,15 @@ ICACHE_FLASH_ATTR  BOOL msg_isPingPong(jm_msg_t *msg);
 ICACHE_FLASH_ATTR  void msg_setLengthType(jm_msg_t *msg, BOOL f);
 ICACHE_FLASH_ATTR BOOL msg_isLengthInt(jm_msg_t *msg);
 ICACHE_FLASH_ATTR  sint8_t msg_getPriority(jm_msg_t *msg);
-ICACHE_FLASH_ATTR  BOOL msg_setPriority(jm_msg_t *msg, sint8_t l);
+ICACHE_FLASH_ATTR  BOOL msg_setPriority(jm_msg_t *msg, sint32_t l);
 ICACHE_FLASH_ATTR  sint8_t msg_getLogLevel(jm_msg_t *msg);
-ICACHE_FLASH_ATTR  BOOL msg_setLogLevel(jm_msg_t *msg, sint8_t v);
+ICACHE_FLASH_ATTR  BOOL msg_setLogLevel(jm_msg_t *msg, sint16_t v);
 ICACHE_FLASH_ATTR sint8_t msg_getRespType(jm_msg_t *msg);
 ICACHE_FLASH_ATTR  BOOL msg_setRespType(jm_msg_t *msg, sint16_t v);
 ICACHE_FLASH_ATTR  sint8_t msg_getUpProtocol(jm_msg_t *msg );
-ICACHE_FLASH_ATTR  void msg_setUpProtocol(jm_msg_t *msg, sint8_t protocol);
+ICACHE_FLASH_ATTR  void msg_setUpProtocol(jm_msg_t *msg, sint16_t protocol);
 ICACHE_FLASH_ATTR  sint8_t msg_getDownProtocol(jm_msg_t *msg);
-ICACHE_FLASH_ATTR  void msg_setDownProtocol(jm_msg_t *msg, sint8_t protocol);
+ICACHE_FLASH_ATTR  void msg_setDownProtocol(jm_msg_t *msg, sint16_t protocol);
 
 ICACHE_FLASH_ATTR jm_msg_t *msg_decode(byte_buffer_t *b);
 ICACHE_FLASH_ATTR BOOL msg_encode(jm_msg_t *msg, byte_buffer_t *buf);

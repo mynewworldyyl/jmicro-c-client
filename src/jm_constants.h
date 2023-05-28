@@ -16,6 +16,9 @@
 #define RESP_OP_ADD 1
 #define RESP_OP_DEL 2
 #define RESP_OP_UP 3
+#define RESP_OP_CODE_DESC "Op Code"
+#define RESP_OP_DEVICEID_DESC "Device ID"
+#define RESP_OP_ACTID_DESC "Act ID"
 
 /*public static final long */
 #define DAY_IN_MILLIS (24*60*60*1000)

@@ -12,6 +12,8 @@
 #include "jm_buffer.h"
 #include "c_types.h"
 
+#define JM_HEARBEET_INTERVAL 30000//向JM平台发送心跳间隔，超过30秒发送一次
+
 //第5，6两位一起表示data字段的编码类型
 #define FLAG_DATA_TYPE 5
 
@@ -86,7 +88,7 @@ typedef client_send_msg_result_t (*client_msg_hander_fn)(jm_msg_t *msg);
 //typedef void (*MqttCallback)(uint32_t *args);
 typedef uint8_t (*client_on_async_msg_fn)(jm_pubsub_item_t *item);
 
-typedef uint8_t (*client_rpc_callback_fn)(byte_buffer_t *payload, void *cbArg);
+typedef uint8_t (*client_rpc_callback_fn)(void *resultMap, sint32_t code, char *errMsg, void *arg);
 
 typedef uint8_t (*client_PubsubListenerFn)(jm_pubsub_item_t *psItem);
 
@@ -98,9 +100,11 @@ typedef void (*client_conn_discon_fn)();
 typedef client_send_msg_result_t (*client_send_msg_fn)(byte_buffer_t *buf);
 
 //消息广播发送器
-typedef client_send_msg_result_t (*client_p2p_msg_sender_fn)(byte_buffer_t *buf, char* host, uint16_t port,uint16_t hlen);
+typedef client_send_msg_result_t (*client_p2p_msg_sender_fn)(byte_buffer_t *buf, char* host, uint16_t port, uint16_t hlen);
 
 typedef bool (*client_timer_check_fn)(/*void *arg*/);
+
+typedef uint64_t (*client_getSystemTime_fn)();
 
 typedef struct _c_timer_check{
 	client_timer_check_fn jm_checkNet;//本地网络状态检测
@@ -114,6 +118,12 @@ typedef struct _c_timer_check{
 extern "C"
 {
 #endif
+
+//设置系统时间获取器
+ICACHE_FLASH_ATTR void client_setSysTimeFn(client_getSystemTime_fn fn);
+
+//设备JM平台服务地址
+ICACHE_FLASH_ATTR void client_setJmInfo(char *jmh, uint16_t port, uint8_t udp);
 
 //定时检测系统各服务状态，确保系统在条件充许性况下可以正常运行
 ICACHE_FLASH_ATTR BOOL client_main_timer();
@@ -142,7 +152,7 @@ ICACHE_FLASH_ATTR BOOL client_registMessageHandler(client_msg_hander_fn msg, sin
 
 /**
  */
-ICACHE_FLASH_ATTR client_send_msg_result_t client_invokeRpc(sint32_t mcode, msg_extra_data_t *params,
+ICACHE_FLASH_ATTR sint64_t client_invokeRpc(sint32_t mcode, msg_extra_data_t *params,
 		client_rpc_callback_fn callback, void *cbArgs);
 
 ICACHE_FLASH_ATTR void client_initPubsubItem(jm_pubsub_item_t *item,uint8_t dataType);
@@ -186,6 +196,21 @@ ICACHE_FLASH_ATTR client_send_msg_result_t client_login(sint32_t actId, char *de
 /**
  */
 ICACHE_FLASH_ATTR client_send_msg_result_t client_logout();
+
+
+/*************************************KEY Value Storage begin***********************************************/
+ICACHE_FLASH_ATTR BOOL kv_delete(char *name, client_rpc_callback_fn cb);
+ICACHE_FLASH_ATTR BOOL kv_update(char *name, char *desc, void *val, sint8_t type, client_rpc_callback_fn cb);
+ICACHE_FLASH_ATTR BOOL kv_get(char *name, client_rpc_callback_fn cb);
+ICACHE_FLASH_ATTR BOOL kv_add(char *name, void *val, char *desc, sint8_t type, client_rpc_callback_fn cb);
+
+/*************************************KEY Value Storage end***********************************************/
+
+
+/*************************************Client extra begin***********************************************/
+ICACHE_FLASH_ATTR BOOL client_encodeExtra(byte_buffer_t *b, msg_extra_data_t *extras, sint8_t type);
+ICACHE_FLASH_ATTR msg_extra_data_t* client_decodeExtra(byte_buffer_t *b);
+/*************************************Client extra end***********************************************/
 
 #ifdef __cplusplus
 }

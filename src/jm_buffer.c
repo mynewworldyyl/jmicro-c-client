@@ -226,19 +226,16 @@ static uint8_t ICACHE_FLASH_ATTR _bb_get_u8(byte_buffer_t *buf) {
 	buf->rpos = (buf->rpos + 1) % buf->capacity;
 
 	if(buf->rpos == buf->wpos) {
-		//锟斤拷锟斤拷锟斤拷锟斤拷耍锟斤拷锟斤拷没锟斤拷锟轿拷锟阶刺�
 		_bb_set_empty(buf,true);
 	}
 	return v;
 }
 
-//锟斤拷锟皆讹拷锟街斤拷锟斤拷
 uint16_t ICACHE_FLASH_ATTR bb_readable_len(byte_buffer_t *buf) {
 	if(_bb_is_wrap(buf)) {
 		if(buf->rw_flag) {
 			return buf->capacity - buf->rpos;
 		}else {
-			//只写锟斤拷锟芥不锟斤拷写
 			return 0;
 		}
 	}
@@ -256,11 +253,9 @@ uint16_t ICACHE_FLASH_ATTR bb_readable_len(byte_buffer_t *buf) {
 	}
 }
 
-//锟斤拷锟斤拷写锟街斤拷锟斤拷
 uint16_t ICACHE_FLASH_ATTR bb_writeable_len(byte_buffer_t *buf) {
 	if(_bb_is_wrap(buf)) {
 		if(buf->rw_flag) {
-			//只锟斤拷锟斤拷锟芥不锟斤拷写
 			return 0;
 		}else {
 			return buf->capacity - buf->wpos;;
@@ -292,8 +287,6 @@ void ICACHE_FLASH_ATTR bb_release(byte_buffer_t * buf) {
 		}
 	}
 
-	//wrap_buf 锟缴达拷锟斤拷锟斤拷锟酵凤拷
-
 	os_free(buf);
 }
 
@@ -306,7 +299,6 @@ BOOL ICACHE_FLASH_ATTR bb_rmove_forward(byte_buffer_t *buf, uint16_t forwarnCnt)
 	buf->rpos = (buf->rpos+forwarnCnt) % buf->capacity;
 
 	if(buf->rpos == buf->wpos) {
-		//锟斤拷锟斤拷锟斤拷锟斤拷耍锟斤拷锟斤拷没锟斤拷锟轿拷锟阶刺�
 		_bb_set_empty(buf,true);
 	}
 
@@ -316,10 +308,8 @@ BOOL ICACHE_FLASH_ATTR bb_rmove_forward(byte_buffer_t *buf, uint16_t forwarnCnt)
 static BOOL ICACHE_FLASH_ATTR bb_check_read_len(byte_buffer_t *buf, uint16_t len) {
 	if(_bb_is_wrap(buf)) {
 		if(buf->rw_flag) {
-			//只锟斤拷锟斤拷锟芥不锟斤拷写
 			return bb_readable_len(buf) >= len;
 		} else {
-			//只写锟斤拷锟斤拷
 			return false;
 		}
 	}
@@ -330,7 +320,7 @@ static BOOL ICACHE_FLASH_ATTR bb_check_read_len(byte_buffer_t *buf, uint16_t len
 	}
 
 	if(bb_readable_len(buf) < len) {
-		INFO("ERROR: bb_readable_len 锟缴讹拷锟斤拷锟斤拷: %d, 锟斤拷锟斤拷锟斤拷锟�: %d\n", bb_readable_len(buf),len);
+		INFO("ERROR: bb_readable_len readable len: %d, need len: %d\n", bb_readable_len(buf),len);
 		return false;
 	}
 	return true;
@@ -710,7 +700,7 @@ static BOOL ICACHE_FLASH_ATTR bb_check_write_len(byte_buffer_t *buf, uint16_t le
 	}
 
 	if(bb_writeable_len(buf) < len) {
-		INFO("ERROR: bb_check_write_len 剩锟斤拷写锟秸硷拷: %d, 锟斤拷要锟秸硷拷: %d\n", bb_writeable_len(buf),len);
+		INFO("ERROR: bb_check_write_len length not enough: %d, need: %d\n", bb_writeable_len(buf),len);
 		return false;
 	}
 	return true;
@@ -801,7 +791,7 @@ BOOL ICACHE_FLASH_ATTR bb_put_buf(byte_buffer_t *buf, byte_buffer_t *src) {
 }
 
 BOOL ICACHE_FLASH_ATTR bb_put_chars(byte_buffer_t *buf, char *chars, uint16_t len){
-	if(len < 0 || bb_check_write_len(buf,len) == false) {
+	if(len < 0 || !bb_check_write_len(buf,len)) {
 		INFO("ERROR: bb_put_chars buffer rpos: %d, need len: %d\n", buf->rpos,len);
 		return false;
 	}
@@ -855,6 +845,7 @@ BOOL ICACHE_FLASH_ATTR bb_put_s16(byte_buffer_t *buf, sint16_t x) {
 		//锟斤拷锟�
 		bb_put_u8(buf,(sint8_t)(x>>8));
 		bb_put_u8(buf,(uint8_t)(x));
+		//INFO("bb_put_s16 %d,%d\n", buf->data[buf->wpos-2], buf->data[buf->wpos-1]);
 	} else {
 		//小锟斤拷
 		bb_put_u8(buf,(uint8_t)(x));

@@ -34,6 +34,8 @@ typedef struct{
 	uint8_t device_id[32];
 	uint32_t actId;//设备绑定的账号ID
 
+	uint32_t use_udp;//是否使用UDP与JM平台通信，1：是，0：否，使用UDP后，不再使用
+
 } SYSCFG;
 
 typedef struct {

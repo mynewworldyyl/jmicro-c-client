@@ -36,7 +36,7 @@ ICACHE_FLASH_ATTR void extra_release(msg_extra_data_t *extra) {
 	msg_extra_data_t *em = extra;
 
 	while(em) {
-		if((PREFIX_TYPE_LIST == em->type || PREFIX_TYPE_STRINGG == em->type)
+		if((PREFIX_TYPE_BYTEBUFFER == em->type || PREFIX_TYPE_STRINGG == em->type)
 				&& em->value.bytesVal && em->neddFreeBytes) {
 			os_free(em->value.bytesVal);
 		}else if(PREFIX_TYPE_MAP == em->type) {
@@ -93,6 +93,12 @@ ICACHE_FLASH_ATTR msg_extra_data_t* extra_put(msg_extra_data_t *header, sint8_t 
 		//msg->extraMap->next = NULL;
 	}
 	return em;
+}
+
+ICACHE_FLASH_ATTR msg_extra_data_t* extra_iteNext(msg_extra_data_iterator_t *ite) {
+	if(ite == NULL || ite->cur == NULL || ite->cur->next == NULL) return NULL;
+	ite->cur = ite->cur->next;
+	return ite->cur;
 }
 
 ICACHE_FLASH_ATTR msg_extra_data_t* extra_sget(msg_extra_data_t *header, char *key) {
@@ -163,6 +169,7 @@ ICACHE_FLASH_ATTR msg_extra_data_t* extra_sput(msg_extra_data_t *header, char *s
 	em->type = type;
 	em->len = 0;
 	em->next = NULL;
+	em->neddFreeBytes = true;
 
 	if(header == NULL) return em;
 
@@ -172,6 +179,36 @@ ICACHE_FLASH_ATTR msg_extra_data_t* extra_sput(msg_extra_data_t *header, char *s
 	tail->next = em; //加到最后一个元素
 
 	return em;  //永远返回新增加的元素
+}
+
+ICACHE_FLASH_ATTR msg_extra_data_t* extra_sputByType(msg_extra_data_t *header, char *strKey, void *val, sint8_t type) {
+	switch(type) {
+	case PREFIX_TYPE_BYTE:
+		return extra_sputS8(header, strKey, *((sint8_t*)val));
+		break;
+	case PREFIX_TYPE_SHORTT:
+		return extra_sputS8(header, strKey, *((sint16_t*)val));
+		break;
+	case PREFIX_TYPE_INT:
+		return extra_sputS8(header, strKey, *((sint32_t*)val));
+		break;
+	case PREFIX_TYPE_LONG:
+		return extra_sputS8(header, strKey, *((sint64_t*)val));
+		break;
+	case PREFIX_TYPE_STRINGG:
+		return extra_sputStr(header, strKey, (char*)val, -1);
+		break;
+	case PREFIX_TYPE_BOOLEAN:
+		return extra_sputBool(header, strKey, *((BOOL*)val));
+		break;
+	case PREFIX_TYPE_CHAR:
+		return extra_sputChar(header, strKey, ((char*)val)[0]);
+		break;
+	default:
+		return NULL;
+		break;
+	}
+
 }
 
 ICACHE_FLASH_ATTR  sint16_t extra_sgetS16(msg_extra_data_t *e, char *strKey){
@@ -291,10 +328,12 @@ ICACHE_FLASH_ATTR static msg_extra_data_t * extra_decodeVal(byte_buffer_t *b) {
 
 	if(type == PREFIX_TYPE_NULL) {
 		rst->value.bytesVal = NULL;
-	}else if(PREFIX_TYPE_LIST == type){
+	}else if(PREFIX_TYPE_BYTEBUFFER == type){
 		if(!bb_get_s16(b,&len)) {
 			goto error;
 		}
+
+		rst->len = len;
 
 		if(len == 0) {
 			rst->value.bytesVal = NULL;
@@ -380,7 +419,7 @@ ICACHE_FLASH_ATTR static msg_extra_data_t * extra_decodeVal(byte_buffer_t *b) {
 			goto error;
 		}
 		len = slen;
-
+		rst->len = 0;
 		rst->neddFreeBytes = true;
 
 		if(len == -1) {
@@ -405,6 +444,8 @@ ICACHE_FLASH_ATTR static msg_extra_data_t * extra_decodeVal(byte_buffer_t *b) {
 					}
 				}
 			}
+
+			rst->len = ilen;
 
 			uint8_t* vptr = (uint8_t*)os_zalloc(ilen + 1);
 			if(vptr == NULL) {
@@ -442,7 +483,8 @@ ICACHE_FLASH_ATTR static msg_extra_data_t * extra_decodeVal(byte_buffer_t *b) {
 ICACHE_FLASH_ATTR static BOOL extra_encodeVal(msg_extra_data_t *extras, byte_buffer_t *b) {
 	sint8_t type = extras->type;
 
-	if (PREFIX_TYPE_LIST == type) {
+	if (PREFIX_TYPE_BYTEBUFFER == type) {
+		INFO("extra_encode List val\n");
 		uint8_t *ptr = extras->value.bytesVal;
 		if(extras->len <= 0) {
 			bb_put_u16(b, 0);
@@ -457,41 +499,49 @@ ICACHE_FLASH_ATTR static BOOL extra_encodeVal(msg_extra_data_t *extras, byte_buf
 		}
 		return true;
 	} else if(type == PREFIX_TYPE_INT) {
+		INFO("extra_encode Integer val: %d\n", extras->value.s32Val);
 		if (!bb_put_s32(b, extras->value.s32Val)) {
 			return false ;
 		}
 		return true;
 	} else if (PREFIX_TYPE_BYTE == type) {
+		INFO("extra_encode Byte val: %d\n", extras->value.s8Val);
 		if (!bb_put_s8(b, extras->value.s8Val)) {
 			return false ;
 		}
 		return true;
 	} else if (PREFIX_TYPE_SHORTT == type) {
+		INFO("extra_encode Short val: %d\n", extras->value.s16Val);
 		if (!bb_put_s16(b, extras->value.s16Val)) {
 			return false ;
 		}
 		return true;
 	} else if (PREFIX_TYPE_LONG == type) {
+		INFO("extra_encode Long val: %d\n", extras->value.s64Val);
 		if (!bb_put_s64(b, extras->value.s64Val)) {
 			return false ;
 		}
 		return true;
 	} else if (PREFIX_TYPE_FLOAT == type) {
+		INFO("extra_encode Float val: %d\n", extras->value.s64Val);
 
 	} else if (PREFIX_TYPE_DOUBLE == type) {
+		INFO("extra_encode Double val: %d\n", extras->value.s64Val);
 
 	} else if (PREFIX_TYPE_BOOLEAN == type) {
+		INFO("extra_encode Boolean val: %d\n", extras->value.boolVal);
 		if (!bb_put_bool(b, extras->value.boolVal)) {
 			return false ;
 		}
 		return true;
 	} else if (PREFIX_TYPE_CHAR == type) {
+		INFO("extra_encode Char val: %d\n", extras->value.charVal);
 		if (!bb_put_char(b, extras->value.charVal)) {
 			return false ;
 		}
 		return true;
 	} else if (PREFIX_TYPE_STRINGG == type) {
-		//INFO("extra_encode len:%d, value: %s\n", extras->len, extras->value.bytesVal);
+		INFO("extra_encode string len:%d, value: %s\n", extras->len, extras->value.bytesVal);
 		sint8_t len = extras->len;
 		if(len < MAX_BYTE_VALUE) {
 			bb_put_s8(b,len);
@@ -519,8 +569,9 @@ ICACHE_FLASH_ATTR static BOOL extra_encodeVal(msg_extra_data_t *extras, byte_buf
 			INFO("extra_encode len less than zero %d\n",len);
 		}
 	}else if (PREFIX_TYPE_MAP == type) {
+		INFO("extra_encode map value\n");
 		//请求参数是Map
-		if(!extra_encode(extras->value.bytesVal, b, NULL,EXTRA_KEY_TYPE_STRING)) {
+		if(!extra_encode(extras->value.bytesVal, b, NULL, EXTRA_KEY_TYPE_STRING)) {
 			//编码Map失败
 			return false;
 		}
@@ -545,8 +596,10 @@ ICACHE_FLASH_ATTR msg_extra_data_t *extra_decode(byte_buffer_t *b){
 
 	if(eleLen == 0) return NULL;//无元素
 
-	/*byte_buffer_t *wrapBuf = bb_create(0);
-	if(wrapBuf == NULL) return NULL;*/
+	/*
+	byte_buffer_t *wrapBuf = bb_create(0);
+	if(wrapBuf == NULL) return NULL;
+	*/
 
 	//byte_buffer_t *wrapBuf = bb_buffer_wrap(b,eleLen,true);
 
@@ -666,7 +719,7 @@ ICACHE_FLASH_ATTR BOOL extra_encode(msg_extra_data_t *extras, byte_buffer_t *b, 
 			}
 		}
 
-		if((PREFIX_TYPE_STRINGG == extras->type || PREFIX_TYPE_LIST == extras->type) &&
+		if((PREFIX_TYPE_STRINGG == extras->type || PREFIX_TYPE_BYTEBUFFER == extras->type) &&
 				extras->value.bytesVal == NULL) {
 			INFO("extra_encode write PREFIX_TYPE_NULL: %d", PREFIX_TYPE_NULL);
 			if(!bb_put_s8(b, PREFIX_TYPE_NULL)) {
@@ -704,62 +757,6 @@ ICACHE_FLASH_ATTR BOOL extra_encode(msg_extra_data_t *extras, byte_buffer_t *b, 
 	if(wl) *wl = wlen;
 
 	INFO("extra_encode end write len: %d\n",wlen);
-
-	return true;
-}
-
-ICACHE_FLASH_ATTR BOOL extra_encodeRpcReqParams(msg_extra_data_t *extras, byte_buffer_t *b){
-
-	//锟斤拷锟街碉拷前写写位锟矫ｏ拷
-	uint16_t wpos = b->wpos;
-
-	//Req params列表，此处无params参数，写0
-	bb_put_u8(b,0);
-
-	int eleCnt = 0;
-	msg_extra_data_t *te = extras;
-	while(te != NULL) {
-		eleCnt++;
-		te = te->next;
-	}
-
-	bb_put_u8(b,eleCnt);//写入参数个数
-
-	if(eleCnt == 0) {
-		return true;//无参数
-	}
-
-	while(extras != NULL) {
-
-		if((PREFIX_TYPE_STRINGG == extras->type || PREFIX_TYPE_LIST == extras->type) &&
-				extras->value.bytesVal == NULL) {
-			if(!bb_put_s8(b, PREFIX_TYPE_NULL)) {
-				INFO("extra_rpcReqParams fail to write PREFIX_TYPE_NULL: %d", PREFIX_TYPE_NULL);
-				return false;
-			} else {
-				extras = extras->next;
-				continue;
-			}
-		}
-
-		if(!bb_put_s8(b, extras->type)) {
-			INFO("extra_encode write extra type fail: %d", extras->type);
-			return false;
-		}
-
-		if(!extra_encodeVal(extras,b)) {
-			return false;
-		}
-
-		extras = extras->next;
-	}
-
-	/*uint16_t wlen;
-	if(b->wpos >= wpos) {
-		wlen = b->wpos - wpos;
-	} else {
-		wlen = b->capacity- (wpos - b->wpos);
-	}*/
 
 	return true;
 }
@@ -925,7 +922,7 @@ ICACHE_FLASH_ATTR jm_msg_t* msg_create_msg(sint8_t type, byte_buffer_t *payload)
 
 	//msg_setMsgId(msg, req.getReqId());
 
-	msg_setUpProtocol(msg, PROTOCOL_BIN);
+	msg_setUpProtocol(msg, PROTOCOL_EXTRA);
 	msg_setDownProtocol(msg, PROTOCOL_EXTRA);
 
 	//msg_setRpcMk(msg, true);
@@ -940,7 +937,7 @@ ICACHE_FLASH_ATTR jm_msg_t* msg_create_msg(sint8_t type, byte_buffer_t *payload)
 	msg_setMonitorable(msg, false);
 	msg_setDebugMode(msg, false);
 
-	//全锟斤拷锟届步锟斤拷锟截ｏ拷锟斤拷锟斤拷锟斤拷锟斤拷锟斤拷锟届步锟斤拷锟截ｏ拷也锟斤拷锟斤拷同锟斤拷锟斤拷锟斤拷
+	//
 	msg_setUpSsl(msg, false);
 	//msg_setInsId(msg, 0);
 	//extra_put(msg->extraMap, EXTRA_KEY_INSID, 0, PREFIX_TYPE_INT);
@@ -970,8 +967,6 @@ ICACHE_FLASH_ATTR jm_msg_t* msg_create_rpc_msg(sint32_t mcode, byte_buffer_t *pa
 	if(!msg) {
 		return NULL;
 	}
-
-
 	msg_setRpcMk(msg, true);
 	//msg_setSmKeyCode(msg, mcode);
 	msg->extraMap = extra_putInt(msg->extraMap, EXTRA_KEY_SM_CODE, mcode);
@@ -979,7 +974,7 @@ ICACHE_FLASH_ATTR jm_msg_t* msg_create_rpc_msg(sint32_t mcode, byte_buffer_t *pa
 }
 
 ICACHE_FLASH_ATTR jm_msg_t* msg_create_ps_msg(byte_buffer_t *payload) {
-	return msg_create_msg(MSG_TYPE_PUBSUB,payload);
+	return msg_create_msg(MSG_TYPE_PUBSUB, payload);
 }
 
 
@@ -999,12 +994,12 @@ ICACHE_FLASH_ATTR static uint16_t msg_set_s16(BOOL isTrue, sint16_t f,sint16_t m
 	return isTrue ?(f |= mask) : (f &= ~mask);
 }
 
-// 锟角凤拷锟斤拷要锟斤拷锟叫伙拷extra锟斤拷锟斤拷
+//
 ICACHE_FLASH_ATTR static BOOL msg_isWriteExtra(jm_msg_t *msg) {
 	return msg->extraMap != NULL;
 }
 
-//锟角凤拷锟斤拷要锟斤拷取extra锟斤拷锟斤拷
+//
 ICACHE_FLASH_ATTR static BOOL msg_isReadExtra(jm_msg_t *msg) {
 	return msg_is_s16(msg->flag,FLAG_EXTRA);
 }
@@ -1186,7 +1181,7 @@ ICACHE_FLASH_ATTR  sint8_t msg_getPriority(jm_msg_t *msg) {
 	return (sint8_t)((msg->extrFlag >> EXTRA_FLAG_PRIORITY) & 0x03);
 }
 
-ICACHE_FLASH_ATTR  BOOL msg_setPriority(jm_msg_t *msg, sint8_t l) {
+ICACHE_FLASH_ATTR  BOOL msg_setPriority(jm_msg_t *msg, sint32_t l) {
 	if(l > PRIORITY_3 || l < PRIORITY_0) {
 		return false;
 	}
@@ -1200,11 +1195,11 @@ ICACHE_FLASH_ATTR  sint8_t msg_getLogLevel(jm_msg_t *msg) {
 }
 
 //000 001 010 011 100 101 110 111
-ICACHE_FLASH_ATTR  BOOL msg_setLogLevel(jm_msg_t *msg, sint8_t v) {
+ICACHE_FLASH_ATTR  BOOL msg_setLogLevel(jm_msg_t *msg, sint16_t v) {
 	if(v < 0 || v > 6) {
 		 return false;
 	}
-	msg->flag = (uint16_t)((v << FLAG_LOG_LEVEL) | msg->flag);
+	msg->flag = (uint16_t)((v << FLAG_LOG_LEVEL) | (msg->flag & FLAG_LOG_LEVEL_MASK));
 	return true;
 }
 
@@ -1217,7 +1212,7 @@ ICACHE_FLASH_ATTR  BOOL msg_setRespType(jm_msg_t *msg, sint16_t v) {
 	if(v < 0 || v > 3) {
 		 return false;
 	}
-	msg->flag = (v << FLAG_RESP_TYPE) | msg->flag;
+	msg->flag = (v << FLAG_RESP_TYPE) | (msg->flag & FLAG_RESP_TYPE_MASK);
 	return true;
 }
 
@@ -1226,10 +1221,10 @@ ICACHE_FLASH_ATTR  sint8_t msg_getUpProtocol(jm_msg_t *msg ) {
 	return (sint8_t)((msg->flag >> FLAG_UP_PROTOCOL) & 0x03);
 }
 
-ICACHE_FLASH_ATTR  void msg_setUpProtocol(jm_msg_t *msg, sint8_t protocol) {
+ICACHE_FLASH_ATTR  void msg_setUpProtocol(jm_msg_t *msg, sint16_t protocol) {
 	//flag |= protocol == PROTOCOL_JSON ? FLAG_UP_PROTOCOL : 0 ;
 	//msg->flag = msg_set_s16(protocol == PROTOCOL_JSON, msg->flag, FLAG_UP_PROTOCOL);
-	msg->flag = msg->flag | (protocol << FLAG_UP_PROTOCOL);
+	msg->flag = (msg->flag & FLAG_UP_PROTOCOL_MASK) | (protocol << FLAG_UP_PROTOCOL);
 }
 
 ICACHE_FLASH_ATTR  sint8_t msg_getDownProtocol(jm_msg_t *msg) {
@@ -1237,10 +1232,11 @@ ICACHE_FLASH_ATTR  sint8_t msg_getDownProtocol(jm_msg_t *msg) {
 	return (sint8_t)((msg->flag >> FLAG_DOWN_PROTOCOL) & 0x03);
 }
 
-ICACHE_FLASH_ATTR  void msg_setDownProtocol(jm_msg_t *msg, sint8_t protocol) {
+ICACHE_FLASH_ATTR  void msg_setDownProtocol(jm_msg_t *msg, sint16_t protocol) {
 	//flag |= protocol == PROTOCOL_JSON ? FLAG_DOWN_PROTOCOL : 0 ;
 	//msg->flag = msg_set_s16(protocol == PROTOCOL_JSON, msg->flag, FLAG_DOWN_PROTOCOL);
-	msg->flag = msg->flag | (protocol << FLAG_DOWN_PROTOCOL);
+	//0000 0000 0000 0011
+	msg->flag = (msg->flag & FLAG_DOWN_PROTOCOL_MASK) | (protocol << FLAG_DOWN_PROTOCOL);
 }
 
 ICACHE_FLASH_ATTR static void freeMem(byte_buffer_t *buf){
@@ -1454,6 +1450,9 @@ ICACHE_FLASH_ATTR BOOL msg_encode(jm_msg_t *msg, byte_buffer_t *buf) {
 		bb_put_buf(buf,data);
 		//freeMem(data);
 	}
+
+	INFO("msg_encode pro: %d, mcode: %d, flag: %d\n",msg_getDownProtocol(msg), extra_getS32(msg->extraMap,EXTRA_KEY_SM_CODE), msg->flag);
+
 	return true;
 
 	doerror:

@@ -241,27 +241,19 @@ ICACHE_FLASH_ATTR void jm_itoa(unsigned int n, char * buf) {
 	buf[i + 1] = '\0';
 }
 
-/*
- *���ܣ��ַ���(char) ת���� ����(int)
- */
-ICACHE_FLASH_ATTR int jm_atoi(char* pstr) {
-	int int_ret = 0;
-	int int_sign = 1; //�����ű�ʾ 1:���� -1:����
+ICACHE_FLASH_ATTR long jm_atoi(char* pstr) {
+	long int_ret = 0;
+	long int_sign = 1;
 
-	if (pstr == NULL) //�ж�ָ���Ƿ�Ϊ��
+	if (pstr == NULL)
 	{
 		return -1;
 	}
 	while (((*pstr) == ' ') || ((*pstr) == '\n') || ((*pstr) == '\t')
 			|| ((*pstr) == '\b')) {
-		pstr++; //����ǰ��Ŀո��ַ�
+		pstr++;
 	}
 
-	/*
-	 * �ж�������
-	 * ��������ţ�ָ��ָ����һ���ַ�
-	 * ����Ƿ��ţ��ѷ��ű��ΪInteger_sign��-1��Ȼ���ٰ�ָ��ָ����һ���ַ�
-	 */
 	if (*pstr == '-') {
 		int_sign = -1;
 	}
@@ -269,7 +261,7 @@ ICACHE_FLASH_ATTR int jm_atoi(char* pstr) {
 		pstr++;
 	}
 
-	while (*pstr >= '0' && *pstr <= '9') //�������ַ������ת�����������������ת���õ���������Ret_Integer
+	while (*pstr >= '0' && *pstr <= '9')
 	{
 		int_ret = int_ret * 10 + *pstr - '0';
 		pstr++;
@@ -279,11 +271,6 @@ ICACHE_FLASH_ATTR int jm_atoi(char* pstr) {
 	return int_ret;
 }
 
-/*
- *���ܣ�16������(0x) ת���� �ַ���(char)
- *ע�⣺���� % / ���ŵĻ���ֻ����ȷ��ӡ��0...9..15������,��Ӧ��'0'...'9''A'...'F'
- *ע�⣺���ڱ������⣬�����������ʱ��uart_sendByte_hex()�������
- */
 ICACHE_FLASH_ATTR void jm_xtoa(unsigned int n, char * buf) {
 	int i;
 
